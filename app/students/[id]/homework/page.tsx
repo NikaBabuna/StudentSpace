@@ -3,51 +3,11 @@
 import { useState } from "react";
 
 const homeworkItems = [
-  {
-    id: "1",
-    title: "Vectors — exercises 3.1 to 3.5",
-    description: "Complete all five exercises from the worksheet. Show all working.",
-    due: "Mon Apr 28, 18:00",
-    status: "pending",
-    attachments: 1,
-    submissions: 0,
-  },
-  {
-    id: "2",
-    title: "Newton's laws — summary sheet",
-    description: "Write a one-page summary of Newton's three laws with examples for each.",
-    due: "Wed Apr 30, 20:00",
-    status: "pending",
-    attachments: 0,
-    submissions: 0,
-  },
-  {
-    id: "3",
-    title: "Kinematics — problem set 2",
-    description: "Problems 1–8 from chapter 4.",
-    due: "Apr 17, 18:00",
-    status: "submitted",
-    attachments: 0,
-    submissions: 2,
-  },
-  {
-    id: "4",
-    title: "Algebra review",
-    description: "Equations and inequalities worksheet.",
-    due: "Apr 10, 18:00",
-    status: "submitted",
-    attachments: 0,
-    submissions: 1,
-  },
-  {
-    id: "5",
-    title: "Trigonometry — unit circle",
-    description: "Memorize and reproduce the unit circle from scratch.",
-    due: "Apr 3, 18:00",
-    status: "late",
-    attachments: 0,
-    submissions: 1,
-  },
+  { id: "1", title: "Vectors — exercises 3.1 to 3.5", description: "Complete all five exercises from the worksheet. Show all working.", due: "Mon Apr 28, 18:00", status: "pending", attachments: 1, submissions: 0 },
+  { id: "2", title: "Newton's laws — summary sheet", description: "Write a one-page summary of Newton's three laws with examples for each.", due: "Wed Apr 30, 20:00", status: "pending", attachments: 0, submissions: 0 },
+  { id: "3", title: "Kinematics — problem set 2", description: "Problems 1–8 from chapter 4.", due: "Apr 17, 18:00", status: "submitted", attachments: 0, submissions: 2 },
+  { id: "4", title: "Algebra review", description: "Equations and inequalities worksheet.", due: "Apr 10, 18:00", status: "submitted", attachments: 0, submissions: 1 },
+  { id: "5", title: "Trigonometry — unit circle", description: "Memorize and reproduce the unit circle from scratch.", due: "Apr 3, 18:00", status: "late", attachments: 0, submissions: 1 },
 ];
 
 function StatusBadge({ status }: { status: string }) {
@@ -83,34 +43,25 @@ function HwIcon({ status }: { status: string }) {
   );
 }
 
-export default async function HomeworkPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params;
+export default function HomeworkPage() {
   const [showModal, setShowModal] = useState(false);
-
   const active = homeworkItems.filter((h) => h.status === "pending");
   const past = homeworkItems.filter((h) => h.status !== "pending");
 
   return (
     <div className="p-6">
-
-      {/* Top bar */}
       <div className="flex items-center justify-between mb-5">
         <div className="text-[12px] uppercase tracking-wider" style={{ color: "var(--color-ss-text-faint)" }}>
           {homeworkItems.length} assignments total
         </div>
-        <button
-          onClick={() => setShowModal(true)}
+        <button onClick={() => setShowModal(true)}
           className="text-[12px] font-medium px-3 py-1.5 rounded"
-          style={{ color: "var(--color-ss-amber-light)", background: "var(--color-ss-amber-dim)", border: "0.5px solid var(--color-ss-amber-border)" }}
-        >
+          style={{ color: "var(--color-ss-amber-light)", background: "var(--color-ss-amber-dim)", border: "0.5px solid var(--color-ss-amber-border)" }}>
           + Post homework
         </button>
       </div>
 
-      {/* Active */}
-      <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: "var(--color-ss-text-ghost)" }}>
-        Active
-      </div>
+      <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: "var(--color-ss-text-ghost)" }}>Active</div>
       <div className="flex flex-col gap-2 mb-6">
         {active.map((h) => (
           <div key={h.id} className="rounded-xl p-4 flex gap-3"
@@ -146,13 +97,9 @@ export default async function HomeworkPage({ params }: { params: Promise<{ id: s
         ))}
       </div>
 
-      {/* Divider */}
       <div className="mb-4" style={{ height: "0.5px", background: "#2a2820" }} />
 
-      {/* Past */}
-      <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: "var(--color-ss-text-ghost)" }}>
-        Past
-      </div>
+      <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: "var(--color-ss-text-ghost)" }}>Past</div>
       <div className="flex flex-col gap-2">
         {past.map((h) => (
           <div key={h.id} className="rounded-xl p-4 flex gap-3"
@@ -175,7 +122,6 @@ export default async function HomeworkPage({ params }: { params: Promise<{ id: s
         ))}
       </div>
 
-      {/* Post homework modal */}
       {showModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50"
           style={{ background: "rgba(0,0,0,0.6)" }}>
@@ -184,33 +130,23 @@ export default async function HomeworkPage({ params }: { params: Promise<{ id: s
             <div className="text-[16px] font-medium mb-4" style={{ color: "var(--color-ss-text-primary)" }}>
               Post homework
             </div>
-
             <div className="flex flex-col gap-3">
               <div>
                 <label className="text-[11px] mb-1 block" style={{ color: "var(--color-ss-text-faint)" }}>Title</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Vectors — exercises 3.1 to 3.5"
+                <input type="text" placeholder="e.g. Vectors — exercises 3.1 to 3.5"
                   className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
-                  style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }}
-                />
+                  style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
               </div>
               <div>
                 <label className="text-[11px] mb-1 block" style={{ color: "var(--color-ss-text-faint)" }}>Description</label>
-                <textarea
-                  rows={3}
-                  placeholder="Instructions for the student..."
+                <textarea rows={3} placeholder="Instructions for the student..."
                   className="w-full px-3 py-2 rounded-md text-[13px] outline-none resize-none"
-                  style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }}
-                />
+                  style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
               </div>
               <div>
                 <label className="text-[11px] mb-1 block" style={{ color: "var(--color-ss-text-faint)" }}>Deadline</label>
-                <input
-                  type="datetime-local"
-                  className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
-                  style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }}
-                />
+                <input type="datetime-local" className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
+                  style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
               </div>
               <div>
                 <label className="text-[11px] mb-1 block" style={{ color: "var(--color-ss-text-faint)" }}>Attachments (optional)</label>
@@ -220,26 +156,20 @@ export default async function HomeworkPage({ params }: { params: Promise<{ id: s
                 </div>
               </div>
             </div>
-
             <div className="flex justify-end gap-2 mt-5">
-              <button
-                onClick={() => setShowModal(false)}
+              <button onClick={() => setShowModal(false)}
                 className="text-[13px] px-4 py-2 rounded-md"
-                style={{ color: "var(--color-ss-text-muted)", background: "#2a2820", border: "0.5px solid var(--color-ss-border)" }}
-              >
+                style={{ color: "var(--color-ss-text-muted)", background: "#2a2820", border: "0.5px solid var(--color-ss-border)" }}>
                 Cancel
               </button>
-              <button
-                className="text-[13px] font-medium px-4 py-2 rounded-md"
-                style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17" }}
-              >
+              <button className="text-[13px] font-medium px-4 py-2 rounded-md"
+                style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17" }}>
                 Post
               </button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }
