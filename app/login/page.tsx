@@ -3,10 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -34,47 +31,94 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/')
+    router.push('/dashboard')
     router.refresh()
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Log in</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+    <div
+      className="min-h-screen flex flex-col items-center justify-center"
+      style={{ background: "var(--color-ss-bg)" }}
+    >
+      {/* Logo */}
+      <div className="mb-10 text-center">
+        <div className="text-[28px] font-medium mb-1" style={{ color: "var(--color-ss-text-primary)" }}>
+          StudentSpace
+        </div>
+        <div className="text-[13px]" style={{ color: "var(--color-ss-text-faint)" }}>
+          Log in to your account
+        </div>
+      </div>
+
+      {/* Card */}
+      <div
+        className="w-[360px] rounded-xl p-8"
+        style={{ background: "var(--color-ss-bg-secondary)", border: "0.5px solid var(--color-ss-border)" }}
+      >
+        <form onSubmit={handleLogin} className="flex flex-col gap-4">
+          <div>
+            <label className="text-[11px] mb-1.5 block" style={{ color: "var(--color-ss-text-faint)" }}>
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="you@example.com"
+              className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
+              style={{
+                background: "#17150f",
+                border: "0.5px solid var(--color-ss-border)",
+                color: "var(--color-ss-text-secondary)",
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] mb-1.5 block" style={{ color: "var(--color-ss-text-faint)" }}>
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+              className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
+              style={{
+                background: "#17150f",
+                border: "0.5px solid var(--color-ss-border)",
+                color: "var(--color-ss-text-secondary)",
+              }}
+            />
+          </div>
+
+          {error && (
+            <div className="text-[12px] px-3 py-2 rounded-md"
+              style={{ background: "var(--color-ss-red-bg)", color: "var(--color-ss-red)", border: "0.5px solid var(--color-ss-red-border)" }}>
+              {error}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            {error && (
-              <p className="text-sm text-red-600">{error}</p>
-            )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Logging in...' : 'Log in'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </main>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full text-[14px] font-medium py-2.5 rounded-lg mt-1"
+            style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", opacity: loading ? 0.6 : 1 }}
+          >
+            {loading ? 'Logging in…' : 'Log in'}
+          </button>
+        </form>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-6 text-[12px]" style={{ color: "var(--color-ss-text-ghost)" }}>
+        Don't have access yet?{" "}
+        <Link href="/signup" style={{ color: "var(--color-ss-text-muted)" }}>
+          Request access
+        </Link>
+      </div>
+    </div>
   )
 }
