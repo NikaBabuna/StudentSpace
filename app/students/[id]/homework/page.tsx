@@ -83,7 +83,8 @@ function HwIcon({ status }: { status: string }) {
   );
 }
 
-export default function HomeworkPage({ params }: { params: { id: string } }) {
+export default async function HomeworkPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
   const [showModal, setShowModal] = useState(false);
 
   const active = homeworkItems.filter((h) => h.status === "pending");

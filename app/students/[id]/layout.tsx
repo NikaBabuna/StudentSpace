@@ -1,7 +1,6 @@
 import AppLayout from "@/components/layout/AppLayout";
 import SessionTabs from "@/components/layout/SessionTabs";
 
-// Temporary dummy data — will be replaced with Supabase fetch later
 const dummyStudent = {
   id: "1",
   name: "Ana Svanidze",
@@ -12,22 +11,23 @@ const dummyStudent = {
   cycleTotal: 8,
 };
 
-export default function StudentLayout({
+export default async function StudentLayout({
   children,
   params,
 }: {
   children: React.ReactNode;
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
+
   return (
     <AppLayout
       mode="session"
-      student={{ ...dummyStudent, id: params.id }}
+      student={{ ...dummyStudent, id }}
       tutorInitials="TN"
       tutorName="Tutor"
       role="tutor"
     >
-      {/* Breadcrumb + tabs */}
       <div
         className="shrink-0"
         style={{ borderBottom: "0.5px solid var(--color-ss-border)" }}
@@ -39,11 +39,10 @@ export default function StudentLayout({
           </div>
         </div>
         <div className="px-6">
-          <SessionTabs studentId={params.id} homeworkBadge={2} chatBadge={1} />
+          <SessionTabs studentId={id} homeworkBadge={2} chatBadge={1} />
         </div>
       </div>
 
-      {/* Page content */}
       <div className="flex-1 overflow-auto">
         {children}
       </div>

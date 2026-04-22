@@ -47,7 +47,8 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export default function OverviewPage({ params }: { params: { id: string } }) {
+export default async function OverviewPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   return (
     <div className="p-6 flex flex-col gap-4">
 
@@ -78,7 +79,7 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
             Sat Mar 8 · Physics, 1 hour — no replacement lesson yet
           </div>
         </div>
-        <Link href={`/students/${params.id}/schedule`}
+        <Link href={`/students/${id}/schedule`}
           className="text-[12px] px-3 py-1.5 rounded shrink-0"
           style={{ color: "var(--color-ss-purple)", background: "#2a2040", border: "0.5px solid #4a3a70" }}>
           Schedule makeup →
@@ -96,7 +97,7 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
             <div className="text-[12px] font-medium uppercase tracking-wider" style={{ color: "var(--color-ss-text-muted)" }}>
               Next lesson
             </div>
-            <Link href={`/students/${params.id}/schedule`} className="text-[11px]" style={{ color: "#7a6a40" }}>
+            <Link href={`/students/${id}/schedule`} className="text-[11px]" style={{ color: "#7a6a40" }}>
               View schedule →
             </Link>
           </div>
@@ -126,7 +127,7 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
             <div className="text-[12px] font-medium uppercase tracking-wider" style={{ color: "var(--color-ss-text-muted)" }}>
               Homework
             </div>
-            <Link href={`/students/${params.id}/homework`} className="text-[11px]" style={{ color: "#7a6a40" }}>
+            <Link href={`/students/${id}/homework`} className="text-[11px]" style={{ color: "#7a6a40" }}>
               View all →
             </Link>
           </div>
@@ -158,7 +159,7 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
             <div className="text-[12px] font-medium uppercase tracking-wider" style={{ color: "var(--color-ss-text-muted)" }}>
               Recent chat
             </div>
-            <Link href={`/students/${params.id}/chat`} className="text-[11px]" style={{ color: "#7a6a40" }}>
+            <Link href={`/students/${id}/chat`} className="text-[11px]" style={{ color: "#7a6a40" }}>
               Open chat →
             </Link>
           </div>
@@ -188,7 +189,7 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
             <div className="text-[12px] font-medium uppercase tracking-wider" style={{ color: "var(--color-ss-text-muted)" }}>
               Materials
             </div>
-            <Link href={`/students/${params.id}/materials`} className="text-[11px]" style={{ color: "#7a6a40" }}>
+            <Link href={`/students/${id}/materials`} className="text-[11px]" style={{ color: "#7a6a40" }}>
               View all →
             </Link>
           </div>

@@ -92,7 +92,8 @@ function LessonCard({ lesson }: { lesson: typeof lessons[0] }) {
   );
 }
 
-export default function SchedulePage({ params }: { params: { id: string } }) {
+export default async function SchedulePage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
   const [filter, setFilter] = useState<Filter>("all");
   const [showModal, setShowModal] = useState(false);
 

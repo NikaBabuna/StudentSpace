@@ -52,7 +52,8 @@ function TypeBadge({ type }: { type: string }) {
   );
 }
 
-export default function MaterialsPage({ params }: { params: { id: string } }) {
+export default async function MaterialsPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
   const [openGroups, setOpenGroups] = useState<string[]>(["1"]);
   const [pinnedFiles, setPinnedFiles] = useState<string[]>(["f1", "f5"]);
   const [showGroupModal, setShowGroupModal] = useState(false);

@@ -38,7 +38,8 @@ const participants: { label: string; role: Role }[] = [
   { label: "Employer", role: "employer" },
 ];
 
-export default function ChatPage({ params }: { params: { id: string } }) {
+export default async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
