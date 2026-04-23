@@ -168,16 +168,17 @@ async function handleAction(lessonId: string, action: string) {
 }
 
   async function handleSchedule(e: React.FormEvent) {
+    
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error } = await supabase.from("lessons").insert({
-      class_id: classId,
-      scheduled_at: scheduledAt,
-      duration_hours: durationHours,
-      status: "scheduled",
-      replaces_lesson_id: makeupForId || null,
-    });
+const { error } = await supabase.from("lessons").insert({
+  class_id: classId,
+  scheduled_at: new Date(scheduledAt).toISOString(),
+  duration_hours: durationHours,
+  status: "scheduled",
+  replaces_lesson_id: makeupForId || null,
+});
     setLoading(false);
     if (error) { setError(error.message); return; }
     setShowModal(false);
