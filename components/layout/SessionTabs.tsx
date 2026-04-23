@@ -13,11 +13,11 @@ export default function SessionTabs({ studentId, homeworkBadge, chatBadge }: Ses
   const pathname = usePathname();
 
   const tabs = [
-    { label: "Overview", href: `/students/${studentId}/overview` },
-    { label: "Homework", href: `/students/${studentId}/homework`, badge: homeworkBadge },
-    { label: "Schedule", href: `/students/${studentId}/schedule` },
-    { label: "Materials", href: `/students/${studentId}/materials` },
-    { label: "Chat", href: `/students/${studentId}/chat`, badge: chatBadge },
+    { label: "Overview", href: `/classes/${studentId}/overview` },
+    { label: "Homework", href: `/classes/${studentId}/homework`, badge: homeworkBadge },
+    { label: "Schedule", href: `/classes/${studentId}/schedule` },
+    { label: "Materials", href: `/classes/${studentId}/materials` },
+    { label: "Chat", href: `/classes/${studentId}/chat`, badge: chatBadge },
   ];
 
   return (

@@ -26,9 +26,8 @@ interface SidebarProps {
 }
 
 const dashboardNav: NavItem[] = [
-  { label: "My students", href: "/dashboard" },
-  { label: "Schedule", href: "/schedule" },
-  { label: "Homework", href: "/homework" },
+  { label: "My classes", href: "/dashboard" },
+  { label: "Inbox", href: "/inbox" },
 ];
 
 const dashboardSettingsNav: NavItem[] = [
@@ -45,15 +44,15 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
 
-  const sessionNav: NavItem[] = student
-    ? [
-        { label: "Overview", href: `/students/${student.id}/overview` },
-        { label: "Homework", href: `/students/${student.id}/homework` },
-        { label: "Schedule", href: `/students/${student.id}/schedule` },
-        { label: "Materials", href: `/students/${student.id}/materials` },
-        { label: "Chat", href: `/students/${student.id}/chat` },
-      ]
-    : [];
+const sessionNav: NavItem[] = student
+  ? [
+      { label: "Overview", href: `/classes/${student.id}/overview` },
+      { label: "Homework", href: `/classes/${student.id}/homework` },
+      { label: "Schedule", href: `/classes/${student.id}/schedule` },
+      { label: "Materials", href: `/classes/${student.id}/materials` },
+      { label: "Chat", href: `/classes/${student.id}/chat` },
+    ]
+  : [];
 
   const cyclePercent = student
     ? Math.round((student.cycleHours / student.cycleTotal) * 100)
@@ -82,7 +81,7 @@ export default function Sidebar({
             className="flex items-center gap-1.5 px-5 py-3 text-[12px] transition-colors hover:opacity-80"
             style={{ color: "var(--color-ss-text-faint)" }}
           >
-            <span>←</span> All students
+            <span>←</span> All classes
           </Link>
 
           <div className="px-5 pb-4" style={{ borderBottom: "0.5px solid var(--color-ss-border)" }}>
