@@ -167,6 +167,14 @@ async function handleAction(lessonId: string, action: string) {
   router.refresh();
 }
 
+async function handleDelete(lessonId: string) {
+  await supabase.from("lessons")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", lessonId);
+  setSelectedId(null);
+  router.refresh();
+}
+
   async function handleSchedule(e: React.FormEvent) {
     
     e.preventDefault();
@@ -384,31 +392,36 @@ const { error } = await supabase.from("lessons").insert({
               <div style={{ height: "0.5px", background: "#2a2820" }} />
 
               {/* Actions */}
-              {isTutor && (
-                <div className="flex flex-col gap-2">
-                  {selected.status === "scheduled" && (
-                    <>
-                      <button onClick={() => handleAction(selected.id, "completed")}
-                        className="w-full py-2 rounded-md text-[12px] font-medium"
-                        style={{ background: "#10201a", color: "#40a870", border: "0.5px solid #1a4030" }}>
-                        ✓ Mark completed
-                      </button>
-                      <button onClick={() => handleAction(selected.id, "missed")}
-                        className="w-full py-2 rounded-md text-[12px] font-medium"
-                        style={{ background: "#2a1010", color: "#c04040", border: "0.5px solid #4a1010" }}>
-                        ✗ Mark missed
-                      </button>
-                    </>
-                  )}
-                  {selected.status === "missed" && !makeupLesson && (
-                    <button onClick={() => { setMakeupForId(selected.id); setShowModal(true); }}
-                      className="w-full py-2 rounded-md text-[12px] font-medium"
-                      style={{ background: "#1a1a2a", color: "#9090d8", border: "0.5px solid #2a2a4a" }}>
-                      ◈ Schedule makeup
-                    </button>
-                  )}
-                </div>
-              )}
+{isTutor && (
+  <div className="flex flex-col gap-2">
+    {selected.status === "scheduled" && (
+      <>
+        <button onClick={() => handleAction(selected.id, "completed")}
+          className="w-full py-2 rounded-md text-[12px] font-medium"
+          style={{ background: "#10201a", color: "#40a870", border: "0.5px solid #1a4030" }}>
+          ✓ Mark completed
+        </button>
+        <button onClick={() => handleAction(selected.id, "missed")}
+          className="w-full py-2 rounded-md text-[12px] font-medium"
+          style={{ background: "#2a1010", color: "#c04040", border: "0.5px solid #4a1010" }}>
+          ✗ Mark missed
+        </button>
+      </>
+    )}
+    {selected.status === "missed" && !makeupLesson && (
+      <button onClick={() => { setMakeupForId(selected.id); setShowModal(true); }}
+        className="w-full py-2 rounded-md text-[12px] font-medium"
+        style={{ background: "#1a1a2a", color: "#9090d8", border: "0.5px solid #2a2a4a" }}>
+        ◈ Schedule makeup
+      </button>
+    )}
+    <button onClick={() => handleDelete(selected.id)}
+      className="w-full py-2 rounded-md text-[12px] font-medium mt-1"
+      style={{ background: "#1e0e0e", color: "#a03030", border: "0.5px solid #3a1818" }}>
+      Delete lesson
+    </button>
+  </div>
+)}
             </>
           )}
         </div>
