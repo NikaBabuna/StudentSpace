@@ -51,6 +51,18 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   return (
     <div className="p-6 flex flex-col gap-4">
+        <div className="flex items-center justify-between mb-5">
+  <div className="text-[12px] uppercase tracking-wider" style={{ color: "var(--color-ss-text-faint)" }}>
+    Overview
+  </div>
+  <Link
+    href={`/classes/${params?.id}/invite`}
+    className="text-[12px] font-medium px-3 py-1.5 rounded"
+    style={{ color: "var(--color-ss-amber-light)", background: "var(--color-ss-amber-dim)", border: "0.5px solid var(--color-ss-amber-border)" }}
+  >
+    + Invite someone
+  </Link>
+</div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-4 gap-3">

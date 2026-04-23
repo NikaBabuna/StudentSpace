@@ -31,7 +31,13 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
+    const { data: profile } = await supabase
+  .from("users")
+  .select("is_employer")
+  .eq("id", (await supabase.auth.getUser()).data.user!.id)
+  .single();
+
+router.push(profile?.is_employer ? '/employer' : '/dashboard');
     router.refresh()
   }
 

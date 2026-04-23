@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import SessionTabs from "@/components/layout/SessionTabs";
+import Link from "next/link";
 
 export default async function ClassLayout({
   children,
@@ -89,12 +90,21 @@ export default async function ClassLayout({
       role={membership.role as any}
     >
       <div className="shrink-0" style={{ borderBottom: "0.5px solid var(--color-ss-border)" }}>
-        <div className="px-6 pt-5">
-          <div className="text-[11px] mb-3" style={{ color: "var(--color-ss-text-ghost)" }}>
-            Classes{" "}
-            <span style={{ color: "#8a7a60" }}>› {cls.title} ›</span>
-          </div>
-        </div>
+        <div className="px-6 pt-5 flex items-center justify-between">
+  <div className="text-[11px] mb-3" style={{ color: "var(--color-ss-text-ghost)" }}>
+    Classes{" "}
+    <span style={{ color: "#8a7a60" }}>› {cls.title} ›</span>
+  </div>
+  {membership.role === "tutor" && (
+    <Link
+      href={`/classes/${id}/invite`}
+      className="text-[12px] font-medium px-3 py-1 rounded mb-3"
+      style={{ color: "var(--color-ss-amber-light)", background: "var(--color-ss-amber-dim)", border: "0.5px solid var(--color-ss-amber-border)" }}
+    >
+      + Invite
+    </Link>
+  )}
+</div>
         <div className="px-6">
           <SessionTabs studentId={id} />
         </div>
