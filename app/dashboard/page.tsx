@@ -2,6 +2,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
+import DashboardClient from "./DashboardClient";
 
 const avatarColors = [
   { bg: "#2a1e10", border: "#5a3a1a", text: "#e8a060" },
@@ -19,81 +20,12 @@ const roleConfig = {
   employer: { label: "Employer", color: "#80c060" },
 };
 
-function ClassCard({ cls, index }: { cls: any; index: number }) {
-  const colors = avatarColors[index % avatarColors.length];
-  const initials = cls.title.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
-  const role = roleConfig[cls.role as keyof typeof roleConfig];
-
-  return (
-    <Link
-      href={`/classes/${cls.id}/overview`}
-      className="rounded-xl p-4 block transition-colors"
-      style={{ background: "var(--color-ss-bg-secondary)", border: "0.5px solid var(--color-ss-border)" }}
-    >
-      <div className="flex items-center gap-2.5 mb-3">
-        <div
-          className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-medium shrink-0"
-          style={{ background: colors.bg, border: `1px solid ${colors.border}`, color: colors.text }}
-        >
-          {initials}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-[14px] font-medium truncate" style={{ color: "#d8c8a0" }}>{cls.title}</div>
-          <div className="text-[11px] mt-0.5" style={{ color: "var(--color-ss-text-faint)" }}>
-            {[cls.subject, cls.level].filter(Boolean).join(" · ") || "No subject set"}
-          </div>
-        </div>
-        <span
-          className="text-[10px] font-medium px-2 py-0.5 rounded shrink-0"
-          style={{ background: "#2a2318", color: role.color, border: "0.5px solid #4a3a18" }}
-        >
-          {role.label}
-        </span>
-      </div>
-
-      <div className="flex flex-wrap gap-1.5">
-        <span
-          className="text-[10px] font-medium px-2 py-0.5 rounded"
-          style={{ background: "#17150f", color: "var(--color-ss-text-ghost)", border: "0.5px solid var(--color-ss-border)" }}
-        >
-          {cls.cycle_hours}h cycle
-        </span>
-        {cls.member_count > 1 && (
-          <span
-            className="text-[10px] font-medium px-2 py-0.5 rounded"
-            style={{ background: "#17150f", color: "var(--color-ss-text-ghost)", border: "0.5px solid var(--color-ss-border)" }}
-          >
-            {cls.member_count} members
-          </span>
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function ClassGroup({ title, classes }: { title: string; classes: any[] }) {
-  if (classes.length === 0) return null;
-  return (
-    <div className="mb-8">
-      <div className="text-[12px] uppercase tracking-wider mb-3" style={{ color: "var(--color-ss-text-faint)" }}>
-        {title}
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        {classes.map((cls, i) => (
-          <ClassCard key={cls.id} cls={cls} index={i} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default async function DashboardPage() {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch user profile
   const { data: profile } = await supabase
     .from("users")
     .select("full_name, is_employer")
@@ -102,45 +34,49 @@ export default async function DashboardPage() {
 
   if (profile?.is_employer) redirect("/employer");
 
-  // Fetch all classes the user is a member of
-  const { data: memberships, error } = await supabase
+  const { data: memberships } = await supabase
     .from("class_members")
-    .select(`
-      role,
-      classes (
-        id,
-        title,
-        subject,
-        level,
-        cycle_hours,
-        deleted_at
-      )
-    `)
+    .select(`role, classes (id, title, subject, level, cycle_hours, deleted_at)`)
     .eq("user_id", user.id);
 
-  if (error) console.error("Memberships error:", JSON.stringify(error));
-
-  // Fetch member counts per class
-  const classIds = (memberships ?? [])
-    .map((m: any) => m.classes?.id)
-    .filter(Boolean);
+  const classIds = (memberships ?? []).map((m: any) => m.classes?.id).filter(Boolean);
+  const fallback = ["00000000-0000-0000-0000-000000000000"];
 
   const { data: memberCounts } = await supabase
     .from("class_members")
     .select("class_id")
-    .in("class_id", classIds.length > 0 ? classIds : ["00000000-0000-0000-0000-000000000000"]);
+    .in("class_id", classIds.length > 0 ? classIds : fallback);
 
   const countMap: Record<string, number> = {};
   for (const row of memberCounts ?? []) {
     countMap[row.class_id] = (countMap[row.class_id] ?? 0) + 1;
   }
 
-  // Fetch pending invites count
   const { count: pendingInvites } = await supabase
     .from("invites")
     .select("*", { count: "exact", head: true })
     .eq("invited_user_id", user.id)
     .eq("status", "pending");
+
+  // Analytics data — lessons across all classes
+  const { data: allLessons } = await supabase
+    .from("lessons")
+    .select("id, class_id, duration_hours, status, scheduled_at")
+    .in("class_id", classIds.length > 0 ? classIds : fallback)
+    .is("deleted_at", null);
+
+  // Analytics data — homework + submissions
+  const { data: allHomework } = await supabase
+    .from("homework")
+    .select("id, class_id, deadline")
+    .in("class_id", classIds.length > 0 ? classIds : fallback)
+    .is("deleted_at", null);
+
+  const hwIds = (allHomework ?? []).map(h => h.id);
+  const { data: allSubmissions } = await supabase
+    .from("submissions")
+    .select("id, homework_id, student_id, grade, created_at")
+    .in("homework_id", hwIds.length > 0 ? hwIds : fallback);
 
   const allClasses = (memberships ?? [])
     .filter((m: any) => m.classes && !m.classes.deleted_at)
@@ -150,80 +86,65 @@ export default async function DashboardPage() {
       member_count: countMap[m.classes.id] ?? 1,
     }));
 
-  const teaching  = allClasses.filter((c) => c.role === "tutor");
-  const attending = allClasses.filter((c) => c.role === "student");
-  const observing = allClasses.filter((c) => c.role === "parent" || c.role === "employer");
+  const teaching  = allClasses.filter(c => c.role === "tutor");
+  const attending = allClasses.filter(c => c.role === "student");
+  const observing = allClasses.filter(c => c.role === "parent" || c.role === "employer");
 
-  const firstName = profile?.full_name?.split(" ")[0] ?? "there";
+const firstName = profile?.full_name?.trim().split(" ")[0] ?? "";
+  const fullName  = profile?.full_name ?? "";
+  const userInitials = fullName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
+
+  // Pre-compute analytics
+  const lessons = allLessons ?? [];
+  const homework = allHomework ?? [];
+  const submissions = allSubmissions ?? [];
+  const now = new Date();
+
+  const totalHours = lessons.filter(l => l.status === "completed").reduce((s, l) => s + (l.duration_hours ?? 0), 0);
+  const totalMissed = lessons.filter(l => l.status === "missed").length;
+  const totalCompleted = lessons.filter(l => l.status === "completed").length;
+  const totalScheduled = lessons.filter(l => l.status === "scheduled").length;
+  const pendingFeedback = submissions.filter(s => !s.grade).length;
+
+  // Per-class analytics for tutor
+  const classAnalytics = teaching.map(cls => {
+    const clsLessons = lessons.filter(l => l.class_id === cls.id);
+    const clsHw = homework.filter(h => h.class_id === cls.id);
+    const clsHwIds = clsHw.map(h => h.id);
+    const clsSubs = submissions.filter(s => clsHwIds.includes(s.homework_id));
+    return {
+      id: cls.id,
+      title: cls.title,
+      hours: clsLessons.filter(l => l.status === "completed").reduce((s, l) => s + (l.duration_hours ?? 0), 0),
+      missed: clsLessons.filter(l => l.status === "missed").length,
+      upcoming: clsLessons.filter(l => l.status === "scheduled").length,
+      hwCount: clsHw.length,
+      subCount: clsSubs.length,
+      pendingFeedback: clsSubs.filter(s => !s.grade).length,
+    };
+  });
 
   return (
-    <AppLayout mode="dashboard" tutorInitials={firstName.slice(0, 2).toUpperCase()} tutorName={profile?.full_name ?? ""} role="tutor">
-      <div className="flex-1 p-6 overflow-auto">
-
-        {/* Top bar */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-[18px] font-medium" style={{ color: "var(--color-ss-text-primary)" }}>
-              Hello, {firstName}
-            </h1>
-            <p className="text-[12px] mt-0.5" style={{ color: "var(--color-ss-text-faint)" }}>
-              {allClasses.length === 0 ? "No classes yet" : `${allClasses.length} ${allClasses.length === 1 ? "class" : "classes"}`}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {(pendingInvites ?? 0) > 0 && (
-              <Link
-                href="/inbox"
-                className="text-[12px] font-medium px-3 py-1.5 rounded-md flex items-center gap-1.5"
-                style={{ background: "#2a2040", color: "var(--color-ss-purple)", border: "0.5px solid #4a3a70" }}
-              >
-                <span
-                  className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-medium"
-                  style={{ background: "var(--color-ss-purple)", color: "#1c1a17" }}
-                >
-                  {pendingInvites}
-                </span>
-                Invites
-              </Link>
-            )}
-            <Link
-              href="/classes/new"
-              className="text-[13px] font-medium px-3.5 py-[7px] rounded-md"
-              style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17" }}
-            >
-              + Create class
-            </Link>
-          </div>
-        </div>
-
-        {/* Empty state */}
-        {allClasses.length === 0 && (
-          <div
-            className="rounded-xl p-10 text-center"
-            style={{ background: "var(--color-ss-bg-secondary)", border: "0.5px solid var(--color-ss-border)" }}
-          >
-            <div className="text-[14px] font-medium mb-2" style={{ color: "var(--color-ss-text-muted)" }}>
-              No classes yet
-            </div>
-            <div className="text-[12px] mb-5" style={{ color: "var(--color-ss-text-faint)" }}>
-              Create your first class or wait for an invite from a tutor.
-            </div>
-            <Link
-              href="/classes/new"
-              className="inline-block text-[13px] font-medium px-4 py-2 rounded-lg"
-              style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17" }}
-            >
-              + Create class
-            </Link>
-          </div>
-        )}
-
-        {/* Class groups */}
-        <ClassGroup title="Classes I teach" classes={teaching} />
-        <ClassGroup title="Classes I attend" classes={attending} />
-        <ClassGroup title="Classes I observe" classes={observing} />
-
-      </div>
+    <AppLayout mode="dashboard" tutorInitials={userInitials} tutorName={fullName} role="tutor">
+      <DashboardClient
+        firstName={firstName}
+        fullName={fullName}
+        allClasses={allClasses}
+        teaching={teaching}
+        attending={attending}
+        observing={observing}
+        pendingInvites={pendingInvites ?? 0}
+        avatarColors={avatarColors}
+        roleConfig={roleConfig}
+        analytics={{
+          totalHours,
+          totalMissed,
+          totalCompleted,
+          totalScheduled,
+          pendingFeedback,
+          classAnalytics,
+        }}
+      />
     </AppLayout>
   );
 }

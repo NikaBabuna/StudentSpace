@@ -49,21 +49,19 @@ export default function NewClassPage() {
     }
 
     // Add creator as tutor member
-    const { error: memberError } = await supabase
-      .from("class_members")
-      .insert({
-        class_id: newClass.id,
-        user_id: user.id,
-        role: "tutor",
-      });
+const { error: memberError } = await supabase
+  .from("class_members")
+  .insert({ class_id: newClass.id, user_id: user.id, role: "tutor" });
 
-    if (memberError) {
-      setError(memberError.message);
-      setLoading(false);
-      return;
-    }
+if (memberError) { setError(memberError.message); setLoading(false); return; }
 
-    router.push(`/classes/${newClass.id}/overview`);
+// Create first payment cycle
+await supabase.from("payment_cycles").insert({
+  class_id: newClass.id,
+  cycle_number: 1,
+});
+
+router.push(`/classes/${newClass.id}/overview`);
   }
 
   return (

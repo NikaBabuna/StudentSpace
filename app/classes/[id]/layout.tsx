@@ -17,7 +17,6 @@ export default async function ClassLayout({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch class details
   const { data: cls } = await supabase
     .from("classes")
     .select("id, title, subject, level, cycle_hours")
@@ -26,7 +25,6 @@ export default async function ClassLayout({
 
   if (!cls) redirect("/dashboard");
 
-  // Fetch user's membership in this class
   const { data: membership } = await supabase
     .from("class_members")
     .select("role")
@@ -36,35 +34,40 @@ export default async function ClassLayout({
 
   if (!membership) redirect("/dashboard");
 
-  // Fetch user profile
   const { data: profile } = await supabase
     .from("users")
     .select("full_name")
     .eq("id", user.id)
     .single();
 
-  // Fetch open payment cycle
-  const { data: cycle } = await supabase
+  // Fetch all cycles ordered ascending
+  const { data: allCycles } = await supabase
     .from("payment_cycles")
     .select("id, cycle_number, closed_at")
     .eq("class_id", id)
-    .is("closed_at", null)
-    .order("cycle_number", { ascending: false })
-    .limit(1)
-    .single();
+    .order("cycle_number", { ascending: true });
 
-  // Compute hours in current cycle
-  let cycleHours = 0;
-  if (cycle) {
-    const { data: lessons } = await supabase
-      .from("lessons")
-      .select("duration_hours")
-      .eq("class_id", id)
-      .eq("payment_cycle_id", cycle.id)
-      .eq("status", "completed")
-      .is("deleted_at", null);
+  // Fetch all completed lessons
+  const { data: completedLessons } = await supabase
+    .from("lessons")
+    .select("id, duration_hours, payment_cycle_id")
+    .eq("class_id", id)
+    .eq("status", "completed")
+    .is("deleted_at", null);
 
-    cycleHours = (lessons ?? []).reduce((sum, l) => sum + (l.duration_hours ?? 0), 0);
+  const cycles = allCycles ?? [];
+  const lessons = completedLessons ?? [];
+  const cycleTarget = cls.cycle_hours;
+
+  // Find open cycle
+  const openCycle = cycles.find(c => !c.closed_at);
+
+  // Compute hours in open cycle
+  let cycleHoursCompleted = 0;
+  if (openCycle) {
+    cycleHoursCompleted = lessons
+      .filter(l => l.payment_cycle_id === openCycle.id)
+      .reduce((sum, l) => sum + (l.duration_hours ?? 0), 0);
   }
 
   const initials = cls.title.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
@@ -76,9 +79,9 @@ export default async function ClassLayout({
     name: cls.title,
     initials,
     grade: [cls.subject, cls.level].filter(Boolean).join(" · ") || "",
-    cycleNumber: cycle?.cycle_number ?? 1,
-    cycleHours,
-    cycleTotal: cls.cycle_hours,
+    cycleNumber: openCycle?.cycle_number ?? 1,
+    cycleHours: cycleHoursCompleted,
+    cycleTotal: cycleTarget,
   };
 
   return (
@@ -91,20 +94,20 @@ export default async function ClassLayout({
     >
       <div className="shrink-0" style={{ borderBottom: "0.5px solid var(--color-ss-border)" }}>
         <div className="px-6 pt-5 flex items-center justify-between">
-  <div className="text-[11px] mb-3" style={{ color: "var(--color-ss-text-ghost)" }}>
-    Classes{" "}
-    <span style={{ color: "#8a7a60" }}>› {cls.title} ›</span>
-  </div>
-  {membership.role === "tutor" && (
-    <Link
-      href={`/classes/${id}/invite`}
-      className="text-[12px] font-medium px-3 py-1 rounded mb-3"
-      style={{ color: "var(--color-ss-amber-light)", background: "var(--color-ss-amber-dim)", border: "0.5px solid var(--color-ss-amber-border)" }}
-    >
-      + Invite
-    </Link>
-  )}
-</div>
+          <div className="text-[11px] mb-3" style={{ color: "var(--color-ss-text-ghost)" }}>
+            Classes{" "}
+            <span style={{ color: "#8a7a60" }}>› {cls.title} ›</span>
+          </div>
+          {membership.role === "tutor" && (
+            <Link
+              href={`/classes/${id}/invite`}
+              className="text-[12px] font-medium px-3 py-1 rounded mb-3"
+              style={{ color: "var(--color-ss-amber-light)", background: "var(--color-ss-amber-dim)", border: "0.5px solid var(--color-ss-amber-border)" }}
+            >
+              + Invite
+            </Link>
+          )}
+        </div>
         <div className="px-6">
           <SessionTabs studentId={id} />
         </div>
