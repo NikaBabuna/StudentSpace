@@ -43,29 +43,28 @@ export default function SignupPage() {
     setSuccess(true)
   }
 
-  if (success) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center"
-        style={{ background: "var(--color-ss-bg)" }}>
-        <div className="w-[380px] rounded-xl p-8 text-center"
-          style={{ background: "var(--color-ss-bg-secondary)", border: "0.5px solid var(--color-ss-border)" }}>
-          <div className="text-[20px] font-medium mb-2" style={{ color: "var(--color-ss-text-primary)" }}>
-            Check your email
-          </div>
-          <div className="text-[13px] leading-relaxed" style={{ color: "var(--color-ss-text-faint)" }}>
-            We've sent a confirmation link to{" "}
-            <span style={{ color: "var(--color-ss-text-secondary)" }}>{email}</span>.
-            Click it to activate your account, then log in.
-          </div>
-          <Link href="/login"
-            className="inline-block mt-6 text-[13px] font-medium px-5 py-2 rounded-lg"
-            style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17" }}>
-            Go to login
-          </Link>
+if (success) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center"
+      style={{ background: "var(--color-ss-bg)" }}>
+      <div className="w-[380px] rounded-xl p-8 text-center"
+        style={{ background: "var(--color-ss-bg-secondary)", border: "0.5px solid var(--color-ss-border)" }}>
+        <div className="text-[20px] font-medium mb-2" style={{ color: "var(--color-ss-text-primary)" }}>
+          Account created
         </div>
+        <div className="text-[13px] leading-relaxed mb-6" style={{ color: "var(--color-ss-text-faint)" }}>
+          Your account is ready. You can log in now with{" "}
+          <span style={{ color: "var(--color-ss-text-secondary)" }}>{email}</span>.
+        </div>
+        <Link href="/login"
+          className="inline-block text-[13px] font-medium px-5 py-2 rounded-lg"
+          style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", textDecoration: "none" }}>
+          Go to login
+        </Link>
       </div>
-    )
-  }
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative"
@@ -130,13 +129,16 @@ export default function SignupPage() {
               style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
           </div>
 
-          <div>
-            <label className="text-[11px] mb-1.5 block" style={{ color: "var(--color-ss-text-faint)" }}>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-              placeholder="you@example.com"
-              className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
-              style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
-          </div>
+<div>
+  <label className="text-[11px] mb-1.5 block" style={{ color: "var(--color-ss-text-faint)" }}>Email</label>
+  <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+    placeholder="you@example.com"
+    className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
+    style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
+  <div className="text-[11px] mt-1.5 px-1" style={{ color: "#7a5a30" }}>
+    ⚠ Email verification is coming soon — make sure this is correct as you won't be able to change it yet.
+  </div>
+</div>
 
           <div>
             <label className="text-[11px] mb-1.5 block" style={{ color: "var(--color-ss-text-faint)" }}>Password</label>

@@ -28,7 +28,18 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* Buttons */}
+      {/* Dev banner */}
+<div className="mb-8 px-4 py-2.5 rounded-lg text-center"
+  style={{ background: "#1a1510", border: "0.5px solid #3a2e18" }}>
+  <div className="text-[11px] font-medium mb-0.5" style={{ color: "#c8a050" }}>
+    🚧 Active development
+  </div>
+  <div className="text-[11px]" style={{ color: "#5a5248" }}>
+    StudentSpace is being built in the open. Expect changes and rough edges.
+  </div>
+</div>
+
+{/* Buttons */}
       <div className="flex flex-col gap-3 w-[280px]">
         <Link
           href="/signup"
