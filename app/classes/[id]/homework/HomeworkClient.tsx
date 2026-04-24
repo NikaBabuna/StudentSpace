@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -87,12 +87,103 @@ function DeadlineBadge({ deadline, submitted, isTutor }: { deadline: string; sub
   );
 }
 
+// ─── Reusable file drop zone ────────────────────────────────────────────────
+
+function FileDropZone({
+  files,
+  onChange,
+}: {
+  files: File[];
+  onChange: (files: File[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  function addFiles(incoming: FileList | null) {
+    if (!incoming) return;
+    const next = [...files];
+    Array.from(incoming).forEach(f => {
+      if (!next.find(x => x.name === f.name && x.size === f.size)) next.push(f);
+    });
+    onChange(next);
+  }
+
+  function removeFile(idx: number) {
+    onChange(files.filter((_, i) => i !== idx));
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Drop zone */}
+      <div
+        onClick={() => inputRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files); }}
+        className="w-full rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer select-none transition-colors"
+        style={{
+          padding: "20px 16px",
+          border: `1.5px dashed ${dragging ? "#c8a050" : "#3a3630"}`,
+          background: dragging ? "#231f16" : "#17150f",
+          color: dragging ? "#c8a050" : "#5a5248",
+        }}
+      >
+        <span className="text-[18px]">📎</span>
+        <span className="text-[12px] font-medium" style={{ color: dragging ? "#c8a050" : "#7a7060" }}>
+          Click to attach files
+        </span>
+        <span className="text-[10px]" style={{ color: "#4a4438" }}>
+          or drag and drop
+        </span>
+      </div>
+
+      {/* Hidden real input */}
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={e => addFiles(e.target.files)}
+      />
+
+      {/* File pills */}
+      {files.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {files.map((f, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 rounded-md px-2.5 py-1.5"
+              style={{ background: "#1e1c16", border: "0.5px solid #3a3630" }}
+            >
+              <span className="text-[13px]">📄</span>
+              <span className="flex-1 truncate text-[12px]" style={{ color: "#b0a080" }}>{f.name}</span>
+              <span className="text-[10px] shrink-0" style={{ color: "#4a4438" }}>{formatSize(f.size)}</span>
+              <button
+                type="button"
+                onClick={() => removeFile(i)}
+                className="shrink-0 w-4 h-4 flex items-center justify-center rounded text-[11px] leading-none transition-colors"
+                style={{ color: "#6a5a48", background: "transparent" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#c04040")}
+                onMouseLeave={e => (e.currentTarget.style.color = "#6a5a48")}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Homework card ───────────────────────────────────────────────────────────
+
 function HwCard({
   hw, classId, isTutor, isStudent, userId,
   submissions, submittingId, setSubmittingId,
   submitFiles, setSubmitFiles, submitLoading,
   submitError, submitProgress, deletingId,
-  onDelete, onSubmit,
+  onDelete, onSubmit, onEdit,
 }: any) {
   const [expanded, setExpanded] = useState(false);
 
@@ -105,14 +196,12 @@ function HwCard({
   const isToday = deadlineStatus(hw.deadline) === "today";
   const submitted = !!mySub;
 
-// Card styling based on state
   let borderColor = "#3a3630";
   let bgColor = "var(--color-ss-bg-secondary)";
   let opacity = 1;
 
   if (isStudent) {
     if (submitted) {
-      // Past submitted — ghostly green
       borderColor = "#1a3528";
       bgColor = "#0c1610";
       if (isOverdue) opacity = 0.75;
@@ -120,13 +209,11 @@ function HwCard({
       borderColor = "#7a3818";
       bgColor = "#1a100a";
     } else if (isOverdue) {
-      // Past due unsubmitted — ghostly dark red
       borderColor = "#2a1414";
       bgColor = "#110a0a";
       opacity = 0.8;
     }
   } else if (isTutor && isOverdue) {
-    // Tutor past due — ghostly dark, desaturated
     borderColor = "#2a2620";
     bgColor = "#141210";
     opacity = 0.7;
@@ -152,12 +239,23 @@ function HwCard({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {isTutor && (
-              <button onClick={e => { e.stopPropagation(); onDelete(hw.id); }}
-                disabled={deletingId === hw.id}
-                className="text-[11px] px-2 py-0.5 rounded"
-                style={{ color: "#a03030", background: "#1e0e0e", border: "0.5px solid #3a1818" }}>
-                {deletingId === hw.id ? "…" : "Delete"}
-              </button>
+              <>
+                <button
+                  onClick={e => { e.stopPropagation(); onEdit(hw); }}
+                  className="text-[11px] px-2 py-0.5 rounded"
+                  style={{ color: "#9a8060", background: "#2a2318", border: "0.5px solid #3a3020" }}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); onDelete(hw.id); }}
+                  disabled={deletingId === hw.id}
+                  className="text-[11px] px-2 py-0.5 rounded"
+                  style={{ color: "#a03030", background: "#1e0e0e", border: "0.5px solid #3a1818" }}
+                >
+                  {deletingId === hw.id ? "…" : "Delete"}
+                </button>
+              </>
             )}
             <span className="text-[13px]" style={{
               color: "#5a5248",
@@ -241,19 +339,7 @@ function HwCard({
                       </button>
                     ) : (
                       <div className="flex flex-col gap-2">
-                        <input type="file" multiple
-                          onChange={e => setSubmitFiles(Array.from(e.target.files ?? []))}
-                          className="text-[12px]" style={{ color: "var(--color-ss-text-faint)" }} />
-                        {submitFiles.length > 0 && (
-                          <div className="flex flex-col gap-1">
-                            {submitFiles.map((f: File, i: number) => (
-                              <div key={i} className="text-[11px] flex gap-2" style={{ color: "var(--color-ss-text-faint)" }}>
-                                <span>📄</span><span className="flex-1 truncate">{f.name}</span>
-                                <span style={{ color: "#4a4438" }}>{formatSize(f.size)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <FileDropZone files={submitFiles} onChange={setSubmitFiles} />
                         {submitProgress && <div className="text-[11px]" style={{ color: "#70b040" }}>{submitProgress}</div>}
                         {submitError && <div className="text-[11px]" style={{ color: "var(--color-ss-red)" }}>{submitError}</div>}
                         <div className="flex gap-2">
@@ -282,6 +368,193 @@ function HwCard({
   );
 }
 
+// ─── Post / Edit modal ───────────────────────────────────────────────────────
+
+function toLocalDatetimeValue(isoString: string) {
+  // Converts a UTC ISO string to the local datetime-local input value
+  const d = new Date(isoString);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+interface HwModalProps {
+  classId: string;
+  userId: string;
+  editTarget: Homework | null; // null = new post
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function HwModal({ classId, userId, editTarget, onClose, onSuccess }: HwModalProps) {
+  const supabase = createClient();
+
+  const [title, setTitle] = useState(editTarget?.title ?? "");
+  const [desc, setDesc] = useState(editTarget?.description ?? "");
+  const [deadline, setDeadline] = useState(
+    editTarget ? toLocalDatetimeValue(editTarget.deadline) : ""
+  );
+
+  // Existing attachments from DB (edit mode) — can be removed
+  const [existingAttachments, setExistingAttachments] = useState<any[]>(
+    editTarget?.attachments ?? []
+  );
+  // New files to be uploaded
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isEdit = !!editTarget;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    // Upload any new files
+    let uploadedAttachments: any[] = [];
+    for (let i = 0; i < newFiles.length; i++) {
+      const file = newFiles[i];
+      const ext = file.name.split(".").pop();
+      const path = `${classId}/${Date.now()}-${i}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("homework-attachments")
+        .upload(path, file);
+      if (uploadErr) { setError(uploadErr.message); setLoading(false); return; }
+      const { data: { publicUrl } } = supabase.storage
+        .from("homework-attachments")
+        .getPublicUrl(path);
+      uploadedAttachments.push({ url: publicUrl, name: file.name, size_bytes: file.size, mime_type: file.type });
+    }
+
+    const finalAttachments = [...existingAttachments, ...uploadedAttachments];
+
+    if (isEdit) {
+      const { error: dbErr } = await supabase
+        .from("homework")
+        .update({
+          title,
+          description: desc || null,
+          deadline: new Date(deadline).toISOString(),
+          attachments: finalAttachments,
+        })
+        .eq("id", editTarget!.id);
+      setLoading(false);
+      if (dbErr) { setError(dbErr.message); return; }
+    } else {
+      const { error: dbErr } = await supabase.from("homework").insert({
+        class_id: classId,
+        created_by: userId,
+        title,
+        description: desc || null,
+        deadline: new Date(deadline).toISOString(),
+        attachments: finalAttachments,
+      });
+      setLoading(false);
+      if (dbErr) { setError(dbErr.message); return; }
+    }
+
+    onSuccess();
+  }
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-50"
+      style={{ background: "rgba(0,0,0,0.6)" }}>
+      <div className="w-[500px] rounded-xl p-6"
+        style={{ background: "#201e18", border: "0.5px solid var(--color-ss-border)" }}>
+        <div className="text-[16px] font-medium mb-4" style={{ color: "var(--color-ss-text-primary)" }}>
+          {isEdit ? "Edit homework" : "Post homework"}
+        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <div>
+            <label className="text-[11px] mb-1 block" style={{ color: "var(--color-ss-text-faint)" }}>Title</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)} required
+              placeholder="e.g. Vectors — exercises 3.1 to 3.5"
+              className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
+              style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
+          </div>
+          <div>
+            <label className="text-[11px] mb-1 block" style={{ color: "var(--color-ss-text-faint)" }}>
+              Description <span style={{ color: "var(--color-ss-text-ghost)" }}>(optional)</span>
+            </label>
+            <textarea rows={2} value={desc} onChange={e => setDesc(e.target.value)}
+              placeholder="Instructions for the student…"
+              className="w-full px-3 py-2 rounded-md text-[13px] outline-none resize-none"
+              style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
+          </div>
+          <div>
+            <label className="text-[11px] mb-1 block" style={{ color: "var(--color-ss-text-faint)" }}>Deadline</label>
+            <input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} required
+              className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
+              style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
+          </div>
+
+          {/* Attachments */}
+          <div>
+            <label className="text-[11px] mb-1.5 block" style={{ color: "var(--color-ss-text-faint)" }}>
+              Attachments <span style={{ color: "var(--color-ss-text-ghost)" }}>(optional)</span>
+            </label>
+
+            {/* Existing saved attachments (edit mode) */}
+            {existingAttachments.length > 0 && (
+              <div className="flex flex-col gap-1.5 mb-2">
+                {existingAttachments.map((a: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2 rounded-md px-2.5 py-1.5"
+                    style={{ background: "#1e1c16", border: "0.5px solid #3a3630" }}>
+                    <span className="text-[13px]">📎</span>
+                    <a href={a.url} target="_blank" rel="noreferrer"
+                      className="flex-1 truncate text-[12px] hover:underline"
+                      style={{ color: "#b0a080", textDecoration: "none" }}>
+                      {a.name}
+                    </a>
+                    {a.size_bytes && (
+                      <span className="text-[10px] shrink-0" style={{ color: "#4a4438" }}>{formatSize(a.size_bytes)}</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setExistingAttachments(prev => prev.filter((_, j) => j !== i))}
+                      className="shrink-0 w-4 h-4 flex items-center justify-center rounded text-[11px] leading-none"
+                      style={{ color: "#6a5a48" }}
+                      onMouseEnter={e => (e.currentTarget.style.color = "#c04040")}
+                      onMouseLeave={e => (e.currentTarget.style.color = "#6a5a48")}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* New files drop zone */}
+            <FileDropZone files={newFiles} onChange={setNewFiles} />
+          </div>
+
+          {error && (
+            <div className="text-[12px] px-3 py-2 rounded-md"
+              style={{ background: "var(--color-ss-red-bg)", color: "var(--color-ss-red)", border: "0.5px solid var(--color-ss-red-border)" }}>
+              {error}
+            </div>
+          )}
+          <div className="flex gap-2 mt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2 rounded-md text-[13px]"
+              style={{ color: "var(--color-ss-text-muted)", background: "#2a2820", border: "0.5px solid var(--color-ss-border)" }}>
+              Cancel
+            </button>
+            <button type="submit" disabled={loading}
+              className="flex-1 py-2 rounded-md text-[13px] font-medium"
+              style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", opacity: loading ? 0.6 : 1 }}>
+              {loading ? (isEdit ? "Saving…" : "Posting…") : (isEdit ? "Save changes" : "Post")}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main export ─────────────────────────────────────────────────────────────
+
 export default function HomeworkClient({ classId, userId, role, homework, submissions }: {
   classId: string;
   userId: string;
@@ -290,19 +563,13 @@ export default function HomeworkClient({ classId, userId, role, homework, submis
   submissions: Submission[];
   studentUsers?: any[];
 }) {
-  const supabase = createClient();
   const router = useRouter();
   const isTutor = role === "tutor";
   const isStudent = role === "student";
   const now = new Date();
 
-  const [showPostModal, setShowPostModal] = useState(false);
-  const [postTitle, setPostTitle] = useState("");
-  const [postDesc, setPostDesc] = useState("");
-  const [postDeadline, setPostDeadline] = useState("");
-  const [postFiles, setPostFiles] = useState<File[]>([]);
-  const [postLoading, setPostLoading] = useState(false);
-  const [postError, setPostError] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Homework | null>(null);
 
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [submitFiles, setSubmitFiles] = useState<File[]>([]);
@@ -311,50 +578,44 @@ export default function HomeworkClient({ classId, userId, role, homework, submis
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-const active = homework
-  .filter(h => new Date(h.deadline) > now)
-  .sort((a, b) => {
-    const aSubmitted = submissions.some(s => s.homework_id === a.id && s.student_id === userId);
-    const bSubmitted = submissions.some(s => s.homework_id === b.id && s.student_id === userId);
-    // Unsubmitted first, then by deadline ascending
-    if (aSubmitted !== bSubmitted) return aSubmitted ? 1 : -1;
-    return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-  });
-const past = homework
-  .filter(h => new Date(h.deadline) <= now)
-  .sort((a, b) => new Date(b.deadline).getTime() - new Date(a.deadline).getTime());
+  const supabase = createClient();
 
-  async function handlePost(e: React.FormEvent) {
-    e.preventDefault();
-    setPostLoading(true); setPostError(null);
-
-    let attachments: any[] = [];
-    for (let i = 0; i < postFiles.length; i++) {
-      const file = postFiles[i];
-      const ext = file.name.split(".").pop();
-      const path = `${classId}/${Date.now()}-${i}.${ext}`;
-      const { error } = await supabase.storage.from("homework-attachments").upload(path, file);
-      if (error) { setPostError(error.message); setPostLoading(false); return; }
-      const { data: { publicUrl } } = supabase.storage.from("homework-attachments").getPublicUrl(path);
-      attachments.push({ url: publicUrl, name: file.name, size_bytes: file.size, mime_type: file.type });
-    }
-
-    const { error } = await supabase.from("homework").insert({
-      class_id: classId, created_by: userId,
-      title: postTitle, description: postDesc || null,
-      deadline: new Date(postDeadline).toISOString(), attachments,
+  const active = homework
+    .filter(h => new Date(h.deadline) > now)
+    .sort((a, b) => {
+      const aSubmitted = submissions.some(s => s.homework_id === a.id && s.student_id === userId);
+      const bSubmitted = submissions.some(s => s.homework_id === b.id && s.student_id === userId);
+      if (aSubmitted !== bSubmitted) return aSubmitted ? 1 : -1;
+      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
     });
+  const past = homework
+    .filter(h => new Date(h.deadline) <= now)
+    .sort((a, b) => new Date(b.deadline).getTime() - new Date(a.deadline).getTime());
 
-    setPostLoading(false);
-    if (error) { setPostError(error.message); return; }
-    setShowPostModal(false);
-    setPostTitle(""); setPostDesc(""); setPostDeadline(""); setPostFiles([]);
+  function openPost() {
+    setEditTarget(null);
+    setModalOpen(true);
+  }
+
+  function openEdit(hw: Homework) {
+    setEditTarget(hw);
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    setEditTarget(null);
+  }
+
+  function onModalSuccess() {
+    closeModal();
     router.refresh();
   }
 
   async function handleSubmit(hwId: string) {
     if (submitFiles.length === 0) return;
-    setSubmitLoading(true); setSubmitError(null);
+    setSubmitLoading(true);
+    setSubmitError(null);
 
     let attachments: any[] = [];
     for (let i = 0; i < submitFiles.length; i++) {
@@ -372,9 +633,11 @@ const past = homework
       homework_id: hwId, student_id: userId, attachments,
     });
 
-    setSubmitLoading(false); setSubmitProgress(null);
+    setSubmitLoading(false);
+    setSubmitProgress(null);
     if (error) { setSubmitError(error.message); return; }
-    setSubmittingId(null); setSubmitFiles([]);
+    setSubmittingId(null);
+    setSubmitFiles([]);
     router.refresh();
   }
 
@@ -393,6 +656,7 @@ const past = homework
     deletingId,
     onDelete: handleDelete,
     onSubmit: handleSubmit,
+    onEdit: openEdit,
   };
 
   return (
@@ -402,7 +666,7 @@ const past = homework
           {homework.length} {homework.length === 1 ? "assignment" : "assignments"}
         </div>
         {isTutor && (
-          <button onClick={() => setShowPostModal(true)}
+          <button onClick={openPost}
             className="text-[12px] font-medium px-3 py-1.5 rounded"
             style={{ color: "var(--color-ss-amber-light)", background: "var(--color-ss-amber-dim)", border: "0.5px solid var(--color-ss-amber-border)" }}>
             + Post homework
@@ -435,76 +699,14 @@ const past = homework
         </div>
       )}
 
-      {showPostModal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ background: "rgba(0,0,0,0.6)" }}>
-          <div className="w-[500px] rounded-xl p-6"
-            style={{ background: "#201e18", border: "0.5px solid var(--color-ss-border)" }}>
-            <div className="text-[16px] font-medium mb-4" style={{ color: "var(--color-ss-text-primary)" }}>
-              Post homework
-            </div>
-            <form onSubmit={handlePost} className="flex flex-col gap-3">
-              <div>
-                <label className="text-[11px] mb-1 block" style={{ color: "var(--color-ss-text-faint)" }}>Title</label>
-                <input type="text" value={postTitle} onChange={e => setPostTitle(e.target.value)} required
-                  placeholder="e.g. Vectors — exercises 3.1 to 3.5"
-                  className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
-                  style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
-              </div>
-              <div>
-                <label className="text-[11px] mb-1 block" style={{ color: "var(--color-ss-text-faint)" }}>
-                  Description <span style={{ color: "var(--color-ss-text-ghost)" }}>(optional)</span>
-                </label>
-                <textarea rows={2} value={postDesc} onChange={e => setPostDesc(e.target.value)}
-                  placeholder="Instructions for the student…"
-                  className="w-full px-3 py-2 rounded-md text-[13px] outline-none resize-none"
-                  style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
-              </div>
-              <div>
-                <label className="text-[11px] mb-1 block" style={{ color: "var(--color-ss-text-faint)" }}>Deadline</label>
-                <input type="datetime-local" value={postDeadline} onChange={e => setPostDeadline(e.target.value)} required
-                  className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
-                  style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
-              </div>
-              <div>
-                <label className="text-[11px] mb-1 block" style={{ color: "var(--color-ss-text-faint)" }}>
-                  Attachments <span style={{ color: "var(--color-ss-text-ghost)" }}>(optional)</span>
-                </label>
-                <input type="file" multiple
-                  onChange={e => setPostFiles(Array.from(e.target.files ?? []))}
-                  className="w-full text-[12px]" style={{ color: "var(--color-ss-text-faint)" }} />
-                {postFiles.length > 0 && (
-                  <div className="mt-2 flex flex-col gap-1">
-                    {postFiles.map((f, i) => (
-                      <div key={i} className="text-[11px] flex gap-2" style={{ color: "var(--color-ss-text-faint)" }}>
-                        <span>📎</span><span className="flex-1 truncate">{f.name}</span>
-                        <span style={{ color: "#4a4438" }}>{formatSize(f.size)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {postError && (
-                <div className="text-[12px] px-3 py-2 rounded-md"
-                  style={{ background: "var(--color-ss-red-bg)", color: "var(--color-ss-red)", border: "0.5px solid var(--color-ss-red-border)" }}>
-                  {postError}
-                </div>
-              )}
-              <div className="flex gap-2 mt-1">
-                <button type="button" onClick={() => setShowPostModal(false)}
-                  className="flex-1 py-2 rounded-md text-[13px]"
-                  style={{ color: "var(--color-ss-text-muted)", background: "#2a2820", border: "0.5px solid var(--color-ss-border)" }}>
-                  Cancel
-                </button>
-                <button type="submit" disabled={postLoading}
-                  className="flex-1 py-2 rounded-md text-[13px] font-medium"
-                  style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", opacity: postLoading ? 0.6 : 1 }}>
-                  {postLoading ? "Posting…" : "Post"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {modalOpen && (
+        <HwModal
+          classId={classId}
+          userId={userId}
+          editTarget={editTarget}
+          onClose={closeModal}
+          onSuccess={onModalSuccess}
+        />
       )}
     </div>
   );

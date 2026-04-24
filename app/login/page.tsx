@@ -19,11 +19,7 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
 
     if (error) {
@@ -32,29 +28,43 @@ export default function LoginPage() {
     }
 
     const { data: profile } = await supabase
-  .from("users")
-  .select("is_employer")
-  .eq("id", (await supabase.auth.getUser()).data.user!.id)
-  .single();
+      .from("users")
+      .select("is_employer")
+      .eq("id", (await supabase.auth.getUser()).data.user!.id)
+      .single()
 
-router.push(profile?.is_employer ? '/employer' : '/dashboard');
+    router.push(profile?.is_employer ? '/employer' : '/dashboard')
     router.refresh()
   }
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center"
+      className="min-h-screen flex flex-col items-center justify-center relative"
       style={{ background: "var(--color-ss-bg)" }}
     >
+      {/* Back button */}
+      <Link
+        href="/"
+        className="absolute top-6 left-6 flex items-center gap-1.5 text-[12px]"
+        style={{ color: "var(--color-ss-text-faint)", textDecoration: "none", opacity: 0.8 }}
+        onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+        onMouseLeave={e => (e.currentTarget.style.opacity = "0.8")}
+      >
+        ← Back
+      </Link>
+
       {/* Logo */}
-      <div className="mb-10 text-center">
+      <Link href="/" className="mb-10 text-center" style={{ textDecoration: "none" }}
+        onMouseEnter={e => (e.currentTarget.style.opacity = "0.75")}
+        onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
+      >
         <div className="text-[28px] font-medium mb-1" style={{ color: "var(--color-ss-text-primary)" }}>
           StudentSpace
         </div>
         <div className="text-[13px]" style={{ color: "var(--color-ss-text-faint)" }}>
           Log in to your account
         </div>
-      </div>
+      </Link>
 
       {/* Card */}
       <div
@@ -69,15 +79,11 @@ router.push(profile?.is_employer ? '/employer' : '/dashboard');
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
               required
               placeholder="you@example.com"
               className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
-              style={{
-                background: "#17150f",
-                border: "0.5px solid var(--color-ss-border)",
-                color: "var(--color-ss-text-secondary)",
-              }}
+              style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }}
             />
           </div>
 
@@ -88,15 +94,11 @@ router.push(profile?.is_employer ? '/employer' : '/dashboard');
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
               required
               placeholder="••••••••"
               className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
-              style={{
-                background: "#17150f",
-                border: "0.5px solid var(--color-ss-border)",
-                color: "var(--color-ss-text-secondary)",
-              }}
+              style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }}
             />
           </div>
 
@@ -115,15 +117,23 @@ router.push(profile?.is_employer ? '/employer' : '/dashboard');
           >
             {loading ? 'Logging in…' : 'Log in'}
           </button>
-        </form>
-      </div>
 
-      {/* Footer */}
-      <div className="mt-6 text-[12px]" style={{ color: "var(--color-ss-text-ghost)" }}>
-        Don't have access yet?{" "}
-        <Link href="/signup" style={{ color: "var(--color-ss-text-muted)" }}>
-          Request access
-        </Link>
+          <div className="flex items-center gap-3">
+            <div className="flex-1" style={{ height: "0.5px", background: "#2a2820" }} />
+            <span className="text-[10px]" style={{ color: "#3a3630" }}>or</span>
+            <div className="flex-1" style={{ height: "0.5px", background: "#2a2820" }} />
+          </div>
+
+          <Link
+            href="/signup"
+            className="w-full text-[13px] font-medium py-2.5 rounded-lg text-center"
+            style={{ color: "var(--color-ss-text-muted)", border: "0.5px solid var(--color-ss-border)", textDecoration: "none" }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = "#5a5248")}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--color-ss-border)")}
+          >
+            Register
+          </Link>
+        </form>
       </div>
     </div>
   )

@@ -150,7 +150,19 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
               { label: "Total hours", value: totalHours, sub: "since start" },
               { label: "Cycles completed", value: completedCycles, sub: `× ${cycleHoursTarget}h each` },
               { label: "Total lessons", value: allLessons.filter(l => l.status !== "scheduled").length, sub: `${missedLessons.length} missed` },
-              { label: "Makeup rate", value: `${makeupRate}%`, sub: missedWithMakeup.length > 0 ? `${missedWithMakeup.length} of ${missedLessons.length} rescheduled` : missedLessons.length === 0 ? "no missed lessons" : "none rescheduled", color: makeupRate >= 80 ? "#40a870" : makeupRate >= 50 ? "#c8a050" : "#c04040" },
+              { 
+  label: "Missed rate", 
+  value: (() => { 
+    const concluded = allLessons.filter(l => l.status === "completed" || l.status === "missed").length;
+    return concluded > 0 ? `${Math.round((missedLessons.length / concluded) * 100)}%` : "—";
+  })(),
+  sub: missedLessons.length > 0 ? `${missedLessons.length} of ${allLessons.filter(l => l.status === "completed" || l.status === "missed").length} lessons` : "no missed lessons",
+  color: (() => {
+    const concluded = allLessons.filter(l => l.status === "completed" || l.status === "missed").length;
+    const rate = concluded > 0 ? missedLessons.length / concluded : 0;
+    return rate === 0 ? "#40a870" : rate <= 0.15 ? "#c8a050" : "#c04040";
+  })(),
+},
             ].map((s: any) => (
               <div key={s.label} className="rounded-lg p-4"
                 style={{ background: "var(--color-ss-bg-secondary)", border: "0.5px solid var(--color-ss-border)" }}>

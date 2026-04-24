@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import SessionTabs from "@/components/layout/SessionTabs";
 import Link from "next/link";
+import MembersButton from "./MembersButton";
 
 export default async function ClassLayout({
   children,
@@ -19,7 +20,7 @@ export default async function ClassLayout({
 
   const { data: cls } = await supabase
     .from("classes")
-    .select("id, title, subject, level, cycle_hours")
+    .select("id, title, subject, level, cycle_hours, description, tutor_notes, created_by")
     .eq("id", id)
     .single();
 
@@ -40,14 +41,12 @@ export default async function ClassLayout({
     .eq("id", user.id)
     .single();
 
-  // Fetch all cycles ordered ascending
   const { data: allCycles } = await supabase
     .from("payment_cycles")
     .select("id, cycle_number, closed_at")
     .eq("class_id", id)
     .order("cycle_number", { ascending: true });
 
-  // Fetch all completed lessons
   const { data: completedLessons } = await supabase
     .from("lessons")
     .select("id, duration_hours, payment_cycle_id")
@@ -55,14 +54,22 @@ export default async function ClassLayout({
     .eq("status", "completed")
     .is("deleted_at", null);
 
+  const { data: classMembers } = await supabase
+    .from("class_members")
+    .select("user_id, role, users (full_name)")
+    .eq("class_id", id);
+
+  const members = (classMembers ?? []).map((m: any) => ({
+    id: m.user_id,
+    full_name: m.users?.full_name ?? "Unknown",
+    role: m.role,
+  }));
+
   const cycles = allCycles ?? [];
   const lessons = completedLessons ?? [];
   const cycleTarget = cls.cycle_hours;
 
-  // Find open cycle
   const openCycle = cycles.find(c => !c.closed_at);
-
-  // Compute hours in open cycle
   let cycleHoursCompleted = 0;
   if (openCycle) {
     cycleHoursCompleted = lessons
@@ -82,6 +89,12 @@ export default async function ClassLayout({
     cycleNumber: openCycle?.cycle_number ?? 1,
     cycleHours: cycleHoursCompleted,
     cycleTotal: cycleTarget,
+    subject: cls.subject ?? null,
+    level: cls.level ?? null,
+    description: cls.description ?? null,
+    tutor_notes: cls.tutor_notes ?? null,
+    cycleHoursTarget: cycleTarget,
+    isCreator: cls.created_by === user.id,
   };
 
   return (
@@ -99,13 +112,20 @@ export default async function ClassLayout({
             <span style={{ color: "#8a7a60" }}>› {cls.title} ›</span>
           </div>
           {membership.role === "tutor" && (
-            <Link
-              href={`/classes/${id}/invite`}
-              className="text-[12px] font-medium px-3 py-1 rounded mb-3"
-              style={{ color: "var(--color-ss-amber-light)", background: "var(--color-ss-amber-dim)", border: "0.5px solid var(--color-ss-amber-border)" }}
-            >
-              + Invite
-            </Link>
+            <div className="flex items-center gap-2 mb-3">
+              <MembersButton
+                classId={id}
+                members={members}
+                currentUserId={user.id}
+              />
+              <Link
+                href={`/classes/${id}/invite`}
+                className="text-[12px] font-medium px-3 py-1 rounded"
+                style={{ color: "var(--color-ss-amber-light)", background: "var(--color-ss-amber-dim)", border: "0.5px solid var(--color-ss-amber-border)" }}
+              >
+                + Invite
+              </Link>
+            </div>
           )}
         </div>
         <div className="px-6">

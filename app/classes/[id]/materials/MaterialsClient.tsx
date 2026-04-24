@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -61,6 +61,79 @@ function TypeBadge({ mime }: { mime: string | null }) {
   );
 }
 
+// ─── Shared file drop zone (same as HomeworkClient) ──────────────────────────
+
+function FileDropZone({
+  files,
+  onChange,
+}: {
+  files: File[];
+  onChange: (files: File[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  function addFiles(incoming: FileList | null) {
+    if (!incoming) return;
+    const next = [...files];
+    Array.from(incoming).forEach(f => {
+      if (!next.find(x => x.name === f.name && x.size === f.size)) next.push(f);
+    });
+    onChange(next);
+  }
+
+  function removeFile(idx: number) {
+    onChange(files.filter((_, i) => i !== idx));
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div
+        onClick={() => inputRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files); }}
+        className="w-full rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer select-none transition-colors"
+        style={{
+          padding: "20px 16px",
+          border: `1.5px dashed ${dragging ? "#c8a050" : "#3a3630"}`,
+          background: dragging ? "#231f16" : "#17150f",
+          color: dragging ? "#c8a050" : "#5a5248",
+        }}
+      >
+        <span className="text-[18px]">📎</span>
+        <span className="text-[12px] font-medium" style={{ color: dragging ? "#c8a050" : "#7a7060" }}>
+          Click to attach files
+        </span>
+        <span className="text-[10px]" style={{ color: "#4a4438" }}>or drag and drop</span>
+      </div>
+      <input ref={inputRef} type="file" multiple className="hidden"
+        onChange={e => addFiles(e.target.files)} />
+      {files.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {files.map((f, i) => (
+            <div key={i} className="flex items-center gap-2 rounded-md px-2.5 py-1.5"
+              style={{ background: "#1e1c16", border: "0.5px solid #3a3630" }}>
+              <span className="text-[13px]">📄</span>
+              <span className="flex-1 truncate text-[12px]" style={{ color: "#b0a080" }}>{f.name}</span>
+              <span className="text-[10px] shrink-0" style={{ color: "#4a4438" }}>{formatSize(f.size)}</span>
+              <button type="button" onClick={() => removeFile(i)}
+                className="shrink-0 w-4 h-4 flex items-center justify-center rounded text-[11px] leading-none"
+                style={{ color: "#6a5a48" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#c04040")}
+                onMouseLeave={e => (e.currentTarget.style.color = "#6a5a48")}>
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function MaterialsClient({ classId, userId, role, groups, materials }: {
   classId: string;
   userId: string;
@@ -77,6 +150,7 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
     materials.filter(m => m.is_pinned).map(m => m.id)
   );
 
+  // Upload (new group) modal
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
@@ -84,6 +158,7 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  // Edit group modal
   const [managingGroup, setManagingGroup] = useState<Group | null>(null);
   const [addFiles, setAddFiles] = useState<File[]>([]);
   const [renameName, setRenameName] = useState("");
@@ -101,9 +176,7 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
 
   async function togglePin(materialId: string) {
     const pinned = pinnedFiles.includes(materialId);
-    setPinnedFiles(prev =>
-      pinned ? prev.filter(f => f !== materialId) : [...prev, materialId]
-    );
+    setPinnedFiles(prev => pinned ? prev.filter(f => f !== materialId) : [...prev, materialId]);
     await supabase.from("materials").update({ is_pinned: !pinned }).eq("id", materialId);
   }
 
@@ -235,7 +308,7 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
         </div>
       )}
 
-      {/* Groups — full width stacked */}
+      {/* Groups */}
       <div className="flex flex-col gap-3">
         {groups.map(group => {
           const groupFiles = materials.filter(m => m.group_id === group.id);
@@ -270,7 +343,7 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
                     onClick={ev => { ev.stopPropagation(); openManage(group); }}
                     className="text-[10px] px-2 py-0.5 rounded cursor-pointer"
                     style={{ background: "#2a2820", color: "#7a7060", border: "0.5px solid #3a3630" }}>
-                    Manage
+                    Edit
                   </div>
                 )}
                 <span className="text-[13px]" style={{
@@ -286,7 +359,7 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
                 <div className="p-4">
                   {groupFiles.length === 0 ? (
                     <div className="text-[12px] text-center py-4" style={{ color: "var(--color-ss-text-ghost)" }}>
-                      No files yet. Click Manage to add files.
+                      No files yet. Click Edit to add files.
                     </div>
                   ) : (
                     <div className="grid grid-cols-3 gap-3">
@@ -297,14 +370,12 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
                           <a key={file.id} href={file.file_url} target="_blank" rel="noreferrer"
                             className="rounded-lg p-3 flex flex-col gap-2 relative"
                             style={{ background: "#17150f", border: "0.5px solid #2a2820", textDecoration: "none" }}>
-
                             {fileIsNew && (
                               <span className="absolute top-2 left-2 text-[8px] font-medium px-1.5 py-0.5 rounded"
                                 style={{ background: "#1a2a10", color: "#70b040", border: "0.5px solid #2a4a10" }}>
                                 New
                               </span>
                             )}
-
                             {isTutor && (
                               <button
                                 onClick={ev => { ev.preventDefault(); ev.stopPropagation(); togglePin(file.id); }}
@@ -314,14 +385,12 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
                                 ★
                               </button>
                             )}
-
                             <div className="flex items-center justify-between mt-4">
                               <span className="text-[20px]">
                                 {file.mime_type?.includes("image") ? "🖼" : "📄"}
                               </span>
                               <TypeBadge mime={file.mime_type} />
                             </div>
-
                             <div className="text-[12px] font-medium leading-snug" style={{ color: "#c8b890" }}>
                               {file.title}
                             </div>
@@ -341,7 +410,7 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
         })}
       </div>
 
-      {/* Upload modal */}
+      {/* ── Upload modal (new group) ── */}
       {showUploadModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50"
           style={{ background: "rgba(0,0,0,0.6)" }}>
@@ -362,24 +431,10 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
                   style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
               </div>
               <div>
-                <label className="text-[11px] mb-1 block" style={{ color: "var(--color-ss-text-faint)" }}>
+                <label className="text-[11px] mb-1.5 block" style={{ color: "var(--color-ss-text-faint)" }}>
                   Files <span style={{ color: "var(--color-ss-text-ghost)" }}>(one or more)</span>
                 </label>
-                <input type="file" multiple required
-                  onChange={e => setUploadFiles(Array.from(e.target.files ?? []))}
-                  className="w-full text-[12px]"
-                  style={{ color: "var(--color-ss-text-faint)" }} />
-                {uploadFiles.length > 0 && (
-                  <div className="mt-2 flex flex-col gap-1">
-                    {uploadFiles.map((f, i) => (
-                      <div key={i} className="text-[11px] flex items-center gap-2" style={{ color: "var(--color-ss-text-faint)" }}>
-                        <span>📄</span>
-                        <span className="flex-1 truncate">{cleanName(f.name)}</span>
-                        <span style={{ color: "var(--color-ss-text-ghost)" }}>{formatSize(f.size)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <FileDropZone files={uploadFiles} onChange={setUploadFiles} />
               </div>
               {uploadProgress && (
                 <div className="text-[12px] px-3 py-2 rounded-md"
@@ -399,9 +454,9 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
                   style={{ color: "var(--color-ss-text-muted)", background: "#2a2820", border: "0.5px solid var(--color-ss-border)" }}>
                   Cancel
                 </button>
-                <button type="submit" disabled={uploadLoading}
+                <button type="submit" disabled={uploadLoading || uploadFiles.length === 0}
                   className="flex-1 py-2 rounded-md text-[13px] font-medium"
-                  style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", opacity: uploadLoading ? 0.6 : 1 }}>
+                  style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", opacity: (uploadLoading || uploadFiles.length === 0) ? 0.6 : 1 }}>
                   {uploadLoading ? (uploadProgress ?? "Uploading…") : `Upload${uploadFiles.length > 1 ? ` ${uploadFiles.length} files` : ""}`}
                 </button>
               </div>
@@ -410,13 +465,14 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
         </div>
       )}
 
-      {/* Manage group modal */}
+      {/* ── Edit group modal ── */}
       {managingGroup && (
         <div className="fixed inset-0 flex items-center justify-center z-50"
           style={{ background: "rgba(0,0,0,0.6)" }}>
           <div className="w-[460px] rounded-xl p-6"
             style={{ background: "#201e18", border: "0.5px solid var(--color-ss-border)" }}>
 
+            {/* Header: group name + rename */}
             <div className="flex items-center justify-between mb-4">
               {renaming ? (
                 <form onSubmit={handleRename} className="flex items-center gap-2 flex-1 mr-2">
@@ -445,32 +501,20 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
                 </div>
               )}
               <button onClick={() => setManagingGroup(null)}
-                className="text-[13px]" style={{ color: "#5a5248" }}>✕</button>
+                className="text-[13px] ml-2" style={{ color: "#5a5248" }}>✕</button>
             </div>
 
             {/* Add files */}
             <div className="mb-4">
               <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: "#5a5248" }}>Add files</div>
               <form onSubmit={handleAddFiles} className="flex flex-col gap-2">
-                <input type="file" multiple
-                  onChange={e => setAddFiles(Array.from(e.target.files ?? []))}
-                  className="w-full text-[12px]"
-                  style={{ color: "var(--color-ss-text-faint)" }} />
+                <FileDropZone files={addFiles} onChange={setAddFiles} />
                 {addFiles.length > 0 && (
-                  <div className="flex flex-col gap-1">
-                    {addFiles.map((f, i) => (
-                      <div key={i} className="text-[11px] flex items-center gap-2" style={{ color: "var(--color-ss-text-faint)" }}>
-                        <span>📄</span>
-                        <span className="flex-1 truncate">{cleanName(f.name)}</span>
-                        <span style={{ color: "var(--color-ss-text-ghost)" }}>{formatSize(f.size)}</span>
-                      </div>
-                    ))}
-                    <button type="submit" disabled={addLoading}
-                      className="w-full py-1.5 rounded-md text-[12px] font-medium mt-1"
-                      style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", opacity: addLoading ? 0.6 : 1 }}>
-                      {addLoading ? (addProgress ?? "Uploading…") : `Upload ${addFiles.length} file${addFiles.length > 1 ? "s" : ""}`}
-                    </button>
-                  </div>
+                  <button type="submit" disabled={addLoading}
+                    className="w-full py-1.5 rounded-md text-[12px] font-medium"
+                    style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", opacity: addLoading ? 0.6 : 1 }}>
+                    {addLoading ? (addProgress ?? "Uploading…") : `Upload ${addFiles.length} file${addFiles.length > 1 ? "s" : ""}`}
+                  </button>
                 )}
               </form>
             </div>
@@ -490,10 +534,15 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
                         <div className="text-[10px]" style={{ color: "#4a4438" }}>{formatSize(file.file_size_bytes)}</div>
                       </div>
                       <TypeBadge mime={file.mime_type} />
-                      <button onClick={() => handleDeleteFile(file.id)}
-                        className="text-[11px] px-1.5 py-0.5 rounded ml-1"
-                        style={{ color: "var(--color-ss-red)", background: "var(--color-ss-red-bg)", border: "0.5px solid var(--color-ss-red-border)" }}>
-                        ✕
+                      <button
+                        onClick={() => handleDeleteFile(file.id)}
+                        className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-[12px] leading-none ml-1 transition-colors"
+                        style={{ color: "#6a5a48", background: "transparent" }}
+                        onMouseEnter={e => (e.currentTarget.style.color = "#c04040")}
+                        onMouseLeave={e => (e.currentTarget.style.color = "#6a5a48")}
+                        title="Remove file"
+                      >
+                        ×
                       </button>
                     </div>
                   ))
