@@ -23,8 +23,8 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
     .eq("user_id", user.id).eq("role", "employer");
 
   const employerClassIds = (employerMemberships ?? [])
-    .filter((m: any) => m.classes && !m.classes.deleted_at)
-    .map((m: any) => m.class_id);
+    .filter((m) => m.classes && !m.classes.deleted_at)
+    .map((m) => m.class_id);
 
   const { data: personMemberships } = await supabase
     .from("class_members").select("class_id")
@@ -33,8 +33,8 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
 
   const sharedClassIds = (personMemberships ?? []).map(m => m.class_id);
   const sharedClasses = (employerMemberships ?? [])
-    .filter((m: any) => sharedClassIds.includes(m.class_id) && m.classes && !m.classes.deleted_at)
-    .map((m: any) => m.classes);
+    .filter((m) => sharedClassIds.includes(m.class_id) && m.classes && !m.classes.deleted_at)
+    .map((m) => m.classes!);
 
   const fullName = profile.full_name ?? "";
   const userInitials = fullName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);

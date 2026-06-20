@@ -4,13 +4,17 @@ import { useState, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import type { Attachment } from "@/lib/types";
+import { deadlineStatus } from "@/lib/homework";
+import { homeworkSchema, firstError } from "@/lib/validation";
+import { submitHomework } from "./actions";
 
 interface Homework {
   id: string;
   title: string;
   description: string | null;
   deadline: string;
-  attachments: any[];
+  attachments: Attachment[];
   created_at: string;
 }
 
@@ -18,7 +22,7 @@ interface Submission {
   id: string;
   homework_id: string;
   student_id: string;
-  attachments: any[];
+  attachments: Attachment[];
   created_at: string;
   grade: string | null;
 }
@@ -27,18 +31,6 @@ function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function deadlineStatus(deadline: string) {
-  const now = new Date();
-  const due = new Date(deadline);
-  const diffMs = due.getTime() - now.getTime();
-  const diffHours = diffMs / (1000 * 60 * 60);
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
-  if (diffMs < 0) return "overdue";
-  if (diffHours < 24) return "today";
-  if (diffDays < 3) return "soon";
-  return "upcoming";
 }
 
 function DeadlineBadge({ deadline, submitted, isTutor }: { deadline: string; submitted: boolean; isTutor: boolean }) {
@@ -295,7 +287,7 @@ function HwCard({
             )}
             {isStudent && (
               <>
-                {mySub ? (
+                {mySub && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-[10px]" style={{ color: "#5a5248" }}>
@@ -325,17 +317,20 @@ function HwCard({
                       </div>
                     )}
                   </div>
-                ) : isOverdue ? (
-                  <div className="text-[12px]" style={{ color: "#5a4040" }}>
-                    Deadline passed — submissions closed.
-                  </div>
+                )}
+                {isOverdue ? (
+                  !mySub && (
+                    <div className="text-[12px]" style={{ color: "#5a4040" }}>
+                      Deadline passed — submissions closed.
+                    </div>
+                  )
                 ) : (
                   <>
                     {submittingId !== hw.id ? (
                       <button onClick={() => { setSubmittingId(hw.id); setSubmitFiles([]); }}
                         className="text-[12px] font-medium px-3 py-1.5 rounded self-start"
                         style={{ color: "var(--color-ss-amber-light)", background: "var(--color-ss-amber-dim)", border: "0.5px solid var(--color-ss-amber-border)" }}>
-                        + Submit work
+                        {mySub ? "↻ Resubmit work" : "+ Submit work"}
                       </button>
                     ) : (
                       <div className="flex flex-col gap-2">
@@ -352,7 +347,7 @@ function HwCard({
                             disabled={submitLoading || submitFiles.length === 0}
                             className="text-[12px] font-medium px-3 py-1.5 rounded"
                             style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", opacity: (submitLoading || submitFiles.length === 0) ? 0.6 : 1 }}>
-                            {submitLoading ? "Uploading…" : "Submit"}
+                            {submitLoading ? "Uploading…" : mySub ? "Resubmit" : "Submit"}
                           </button>
                         </div>
                       </div>
@@ -408,11 +403,15 @@ function HwModal({ classId, userId, editTarget, onClose, onSuccess }: HwModalPro
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
+    const parsed = homeworkSchema.safeParse({ title, description: desc, deadline });
+    if (!parsed.success) { setError(firstError(parsed.error)); return; }
+
+    setLoading(true);
+
     // Upload any new files
-    let uploadedAttachments: any[] = [];
+    const uploadedAttachments: Attachment[] = [];
     for (let i = 0; i < newFiles.length; i++) {
       const file = newFiles[i];
       const ext = file.name.split(".").pop();
@@ -617,7 +616,7 @@ export default function HomeworkClient({ classId, userId, role, homework, submis
     setSubmitLoading(true);
     setSubmitError(null);
 
-    let attachments: any[] = [];
+    const attachments: Attachment[] = [];
     for (let i = 0; i < submitFiles.length; i++) {
       const file = submitFiles[i];
       setSubmitProgress(`Uploading ${i + 1} of ${submitFiles.length}…`);
@@ -629,13 +628,11 @@ export default function HomeworkClient({ classId, userId, role, homework, submis
       attachments.push({ url: publicUrl, name: file.name, size_bytes: file.size, mime_type: file.type });
     }
 
-    const { error } = await supabase.from("submissions").insert({
-      homework_id: hwId, student_id: userId, attachments,
-    });
+    const { error } = await submitHomework({ homeworkId: hwId, attachments });
 
     setSubmitLoading(false);
     setSubmitProgress(null);
-    if (error) { setSubmitError(error.message); return; }
+    if (error) { setSubmitError(error); return; }
     setSubmittingId(null);
     setSubmitFiles([]);
     router.refresh();

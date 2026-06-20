@@ -1,7 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import SubmissionsClient from "./SubmissionsClient";
+import { toAttachments } from "@/lib/types";
+import { signAttachments, HOMEWORK_BUCKET } from "@/lib/storage";
 
 export default async function SubmissionsPage({
   params,
@@ -54,12 +55,23 @@ export default async function SubmissionsPage({
     .eq("homework_id", hwId)
     .order("created_at", { ascending: true });
 
+  const signedHw = {
+    ...hw,
+    attachments: await signAttachments(supabase, HOMEWORK_BUCKET, toAttachments(hw.attachments)),
+  };
+  const signedSubmissions = await Promise.all(
+    (submissions ?? []).map(async s => ({
+      ...s,
+      attachments: await signAttachments(supabase, HOMEWORK_BUCKET, toAttachments(s.attachments)),
+    }))
+  );
+
   return (
     <SubmissionsClient
       classId={classId}
-      hw={hw}
+      hw={signedHw}
       studentUsers={studentUsers ?? []}
-      submissions={submissions ?? []}
+      submissions={signedSubmissions}
       tutorId={user.id}
     />
   );

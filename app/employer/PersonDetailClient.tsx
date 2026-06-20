@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import type { ClassSummary } from "@/lib/types";
 
 export default function PersonDetailClient({ person, classes, role, backHref }: {
   person: { id: string; full_name: string; email: string };
-  classes: any[];
+  classes: ClassSummary[];
   role: string;
   backHref: string;
 }) {
@@ -48,7 +49,7 @@ export default function PersonDetailClient({ person, classes, role, backHref }: 
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {classes.map((cls: any) => (
+            {classes.map((cls) => (
               <Link key={cls.id} href={`/classes/${cls.id}/overview`}
                 className="flex items-center gap-4 px-4 py-3.5 rounded-xl"
                 style={{ background: "#201e18", border: "0.5px solid #3a3630", textDecoration: "none" }}

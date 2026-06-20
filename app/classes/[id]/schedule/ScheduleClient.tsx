@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import { sumCompletedHours, computeCycleClose } from "@/lib/payments";
+import { lessonSchema, firstError } from "@/lib/validation";
 
 interface Lesson {
   id: string;
@@ -17,6 +19,7 @@ interface Cycle {
   id: string;
   cycle_number: number;
   closed_at: string | null;
+  paid_at: string | null;
 }
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -55,6 +58,7 @@ function pillStyle(l: Lesson, all: Lesson[]) {
   if (l.status === "missed" && mu)   return { bg: "#221020", border: "#c04040", borderStyle: "dashed", color: "#c04040", subColor: "#4a2040" };
   if (l.status === "missed")         return { bg: "#2a1010", border: "#c04040", borderStyle: "solid",  color: "#c04040", subColor: "#5a2020" };
   if (l.status === "scheduled" && mu)return { bg: "#1a1a2a", border: "#9090d8", borderStyle: "solid",  color: "#9090d8", subColor: "#3a3a5a" };
+  if (l.status === "cancelled")       return { bg: "#1a1a18", border: "#5a5a52", borderStyle: "solid",  color: "#7a7a70", subColor: "#4a4a42" };
   return                                    { bg: "#2a2318", border: "#c8a050", borderStyle: "solid",  color: "#c8a050", subColor: "#5a4820" };
 }
 
@@ -65,6 +69,7 @@ function statusChipStyle(l: Lesson) {
   if (l.status === "missed" && mu)    return { bg: "#221020", color: "#c04040", border: "#4a1040", label: "◈ Makeup · missed" };
   if (l.status === "missed")          return { bg: "#2a1010", color: "#c04040", border: "#4a1010", label: "✗ Missed" };
   if (l.status === "scheduled" && mu) return { bg: "#1a1a2a", color: "#9090d8", border: "#2a2a4a", label: "◈ Makeup · upcoming" };
+  if (l.status === "cancelled")       return { bg: "#1a1a18", color: "#7a7a70", border: "#3a3a36", label: "⊘ Cancelled" };
   return                                     { bg: "#2a2318", color: "#c8a050", border: "#4a3a18", label: "● Upcoming" };
 }
 
@@ -87,6 +92,7 @@ export default function ScheduleClient({ classId, userId, role, lessons, cycles,
   const [durationHours, setDurationHours] = useState(1);
   const [makeupForId, setMakeupForId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const activeCycle = cycles.find(c => !c.closed_at);
@@ -117,13 +123,14 @@ async function handleAction(lessonId: string, action: string) {
     const lesson = lessons.find(l => l.id === lessonId);
     if (!lesson) return;
 
-    const hoursInCycle = activeCycle ? lessons
-      .filter(l => l.payment_cycle_id === activeCycle.id && l.status === "completed")
-      .reduce((sum, l) => sum + l.duration_hours, 0) : 0;
+    const hoursInCycle = activeCycle ? sumCompletedHours(lessons, activeCycle.id) : 0;
+    const { closesCycle, overflowHours } = computeCycleClose({
+      hoursInCycle,
+      lessonHours: lesson.duration_hours,
+      cycleTarget: cycleHours,
+    });
 
-    const newTotal = hoursInCycle + lesson.duration_hours;
-
-    if (activeCycle && newTotal >= cycleHours) {
+    if (activeCycle && closesCycle) {
       // Close current cycle
       await supabase.from("lessons").update({
         status: "completed",
@@ -140,17 +147,13 @@ async function handleAction(lessonId: string, action: string) {
         cycle_number: activeCycle.cycle_number + 1,
       }).select().single();
 
-      // If there's overflow, assign this lesson to the new cycle too
-      // by updating it — the lesson straddles cycles, so we put it in the new one
-      const overflow = newTotal - cycleHours;
-      if (overflow > 0 && newCycle) {
-        // Move the lesson to the new cycle and create a synthetic "partial" entry
-        // Simplest correct approach: keep lesson in old cycle (it completed it),
-        // insert a carry-over record in new cycle for the overflow hours
+      // Carry overflow hours into the new cycle as a separate completed entry,
+      // leaving the original lesson recorded in the cycle it completed.
+      if (overflowHours > 0 && newCycle) {
         await supabase.from("lessons").insert({
           class_id: classId,
           scheduled_at: lesson.scheduled_at,
-          duration_hours: overflow,
+          duration_hours: overflowHours,
           status: "completed",
           payment_cycle_id: newCycle.id,
         });
@@ -163,8 +166,25 @@ async function handleAction(lessonId: string, action: string) {
     }
   } else if (action === "missed") {
     await supabase.from("lessons").update({ status: "missed" }).eq("id", lessonId);
+  } else if (action === "cancelled") {
+    await supabase.from("lessons").update({ status: "cancelled" }).eq("id", lessonId);
   }
   router.refresh();
+}
+
+async function handleMarkPaid(cycleId: string) {
+  setMarkingPaidId(cycleId);
+  await supabase.from("payment_cycles")
+    .update({ paid_at: new Date().toISOString() })
+    .eq("id", cycleId);
+  setMarkingPaidId(null);
+  router.refresh();
+}
+
+function cycleStatus(c: Cycle) {
+  if (c.paid_at) return "paid";
+  if (c.closed_at) return "closed";
+  return "progress";
 }
 
 async function handleDelete(lessonId: string) {
@@ -176,9 +196,12 @@ async function handleDelete(lessonId: string) {
 }
 
   async function handleSchedule(e: React.FormEvent) {
-    
     e.preventDefault();
     setError(null);
+
+    const parsed = lessonSchema.safeParse({ scheduledAt, durationHours });
+    if (!parsed.success) { setError(firstError(parsed.error)); return; }
+
     setLoading(true);
 const { error } = await supabase.from("lessons").insert({
   class_id: classId,
@@ -300,8 +323,9 @@ const { error } = await supabase.from("lessons").insert({
         </div>
 
         {/* Side panel */}
-        <div className="shrink-0 flex flex-col gap-3 p-4 overflow-y-auto"
+        <div className="shrink-0 flex flex-col overflow-hidden"
           style={{ width: "220px", borderLeft: "0.5px solid #3a3630" }}>
+          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
           {!selected ? (
             <div className="text-[12px] text-center mt-10" style={{ color: "#4a4438", lineHeight: 1.6 }}>
               Click any lesson to see details and actions
@@ -406,6 +430,11 @@ const { error } = await supabase.from("lessons").insert({
           style={{ background: "#2a1010", color: "#c04040", border: "0.5px solid #4a1010" }}>
           ✗ Mark missed
         </button>
+        <button onClick={() => handleAction(selected.id, "cancelled")}
+          className="w-full py-2 rounded-md text-[12px] font-medium"
+          style={{ background: "#1a1a18", color: "#7a7a70", border: "0.5px solid #3a3a36" }}>
+          ⊘ Cancel lesson
+        </button>
       </>
     )}
     {selected.status === "missed" && !makeupLesson && (
@@ -423,6 +452,50 @@ const { error } = await supabase.from("lessons").insert({
   </div>
 )}
             </>
+          )}
+          </div>
+
+          {isTutor && cycles.length > 0 && (
+            <div className="shrink-0 p-4 flex flex-col gap-2"
+              style={{ borderTop: "0.5px solid #3a3630", background: "#1c1a17" }}>
+              <div className="text-[10px] uppercase tracking-wider" style={{ color: "#5a5248" }}>
+                Payment cycles
+              </div>
+              <div className="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto">
+                {cycles.map(c => {
+                  const status = cycleStatus(c);
+                  return (
+                    <div key={c.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5"
+                      style={{ background: "#17150f", border: "0.5px solid #2a2820" }}>
+                      <div>
+                        <div className="text-[11px] font-medium" style={{ color: "#c8b890" }}>
+                          Cycle {c.cycle_number}
+                        </div>
+                        <span className="text-[9px] font-medium px-1.5 py-0.5 rounded"
+                          style={
+                            status === "paid"
+                              ? { background: "#10201a", color: "#40a870", border: "0.5px solid #1a4030" }
+                              : status === "closed"
+                                ? { background: "#1a1828", color: "#9090d8", border: "0.5px solid #3a3060" }
+                                : { background: "#2a2318", color: "#c8a050", border: "0.5px solid #4a3a18" }
+                          }>
+                          {status === "paid" ? "Paid" : status === "closed" ? "Closed" : "In progress"}
+                        </span>
+                      </div>
+                      {status === "closed" && (
+                        <button
+                          onClick={() => handleMarkPaid(c.id)}
+                          disabled={markingPaidId === c.id}
+                          className="text-[10px] font-medium px-2 py-1 rounded shrink-0"
+                          style={{ background: "#10201a", color: "#40a870", border: "0.5px solid #1a4030", opacity: markingPaidId === c.id ? 0.6 : 1 }}>
+                          {markingPaidId === c.id ? "…" : "Mark paid"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       </div>

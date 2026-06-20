@@ -31,9 +31,9 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
 
   const { data: cycles } = await supabase
     .from("payment_cycles")
-    .select("id, cycle_number, closed_at")
+    .select("id, cycle_number, closed_at, paid_at")
     .eq("class_id", id)
-    .order("cycle_number", { ascending: false });
+    .order("cycle_number", { ascending: true });
 
 return (
   <ScheduleClient
