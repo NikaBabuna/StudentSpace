@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
@@ -12,18 +12,35 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('verified') === '1') {
+      setNotice('Email verified. You can log in now.')
+    }
+    if (params.get('error') === 'confirmation_failed') {
+      setError('Email confirmation failed or the link expired. Try signing up again or contact support.')
+    }
+  }, [])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setNotice(null)
     setLoading(true)
 
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
 
     if (error) {
-      setError(error.message)
+      const msg = error.message.toLowerCase()
+      if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+        setError('Please verify your email before logging in. Check your inbox for the confirmation link.')
+      } else {
+        setError(error.message)
+      }
       return
     }
 
@@ -101,6 +118,13 @@ export default function LoginPage() {
               style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }}
             />
           </div>
+
+          {notice && (
+            <div className="text-[12px] px-3 py-2 rounded-md"
+              style={{ background: "#10201a", color: "#40a870", border: "0.5px solid #1a4030" }}>
+              {notice}
+            </div>
+          )}
 
           {error && (
             <div className="text-[12px] px-3 py-2 rounded-md"

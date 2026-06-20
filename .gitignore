@@ -32,6 +32,15 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.env*.local
+
+# sentry (local CLI may store auth token here)
+.sentryclirc
+
+# supabase (local CLI state — keep migrations, ignore linked/temp state)
+supabase/.temp/
+supabase/.branches/
+supabase/.env
 
 # vercel
 .vercel

@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import MaterialsClient from "./MaterialsClient";
+import { signStoredUrl, MATERIALS_BUCKET } from "@/lib/storage";
 
 export default async function MaterialsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,13 +33,22 @@ export default async function MaterialsPage({ params }: { params: Promise<{ id: 
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
+  // Swap stored file URLs for short-lived signed URLs (works whether the
+  // bucket is public or private).
+  const signedMaterials = await Promise.all(
+    (materials ?? []).map(async (m) => ({
+      ...m,
+      file_url: await signStoredUrl(supabase, MATERIALS_BUCKET, m.file_url),
+    }))
+  );
+
   return (
     <MaterialsClient
       classId={id}
       userId={user.id}
       role={membership?.role ?? "student"}
       groups={groups ?? []}
-      materials={materials ?? []}
+      materials={signedMaterials}
     />
   );
 }

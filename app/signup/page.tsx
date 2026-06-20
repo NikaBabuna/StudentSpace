@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
+import { signupSchema, firstError } from '@/lib/validation'
 
 type AccountType = 'personal' | 'business'
 
@@ -23,12 +24,20 @@ export default function SignupPage() {
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+
+    const parsed = signupSchema.safeParse({ fullName, email, password, bio })
+    if (!parsed.success) {
+      setError(firstError(parsed.error))
+      return
+    }
+
     setLoading(true)
 
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
           full_name: fullName,
           is_employer: accountType === 'business',
@@ -50,11 +59,12 @@ if (success) {
       <div className="w-[380px] rounded-xl p-8 text-center"
         style={{ background: "var(--color-ss-bg-secondary)", border: "0.5px solid var(--color-ss-border)" }}>
         <div className="text-[20px] font-medium mb-2" style={{ color: "var(--color-ss-text-primary)" }}>
-          Account created
+          Check your email
         </div>
         <div className="text-[13px] leading-relaxed mb-6" style={{ color: "var(--color-ss-text-faint)" }}>
-          Your account is ready. You can log in now with{" "}
+          We sent a confirmation link to{" "}
           <span style={{ color: "var(--color-ss-text-secondary)" }}>{email}</span>.
+          Click it to verify your account, then log in.
         </div>
         <Link href="/login"
           className="inline-block text-[13px] font-medium px-5 py-2 rounded-lg"
@@ -135,8 +145,8 @@ if (success) {
     placeholder="you@example.com"
     className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
     style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }} />
-  <div className="text-[11px] mt-1.5 px-1" style={{ color: "#7a5a30" }}>
-    ⚠ Email verification is coming soon — make sure this is correct as you won't be able to change it yet.
+  <div className="text-[11px] mt-1.5 px-1" style={{ color: "var(--color-ss-text-ghost)" }}>
+    You will need to verify this address before logging in.
   </div>
 </div>
 

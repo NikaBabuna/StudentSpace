@@ -1,6 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import HomeworkClient from "./HomeworkClient";
+import { toAttachments } from "@/lib/types";
+import { signAttachments, HOMEWORK_BUCKET } from "@/lib/storage";
 
 export default async function HomeworkPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -37,13 +39,27 @@ export default async function HomeworkPage({ params }: { params: Promise<{ id: s
     .select("id, full_name")
     .in("id", studentIds.length > 0 ? studentIds : ["00000000-0000-0000-0000-000000000000"]);
 
+  // Replace stored file URLs with short-lived signed URLs.
+  const homework = await Promise.all(
+    (homeworkRows ?? []).map(async h => ({
+      ...h,
+      attachments: await signAttachments(supabase, HOMEWORK_BUCKET, toAttachments(h.attachments)),
+    }))
+  );
+  const signedSubmissions = await Promise.all(
+    (submissions ?? []).map(async s => ({
+      ...s,
+      attachments: await signAttachments(supabase, HOMEWORK_BUCKET, toAttachments(s.attachments)),
+    }))
+  );
+
   return (
     <HomeworkClient
       classId={id}
       userId={user.id}
       role={membership?.role ?? "student"}
-      homework={homeworkRows ?? []}
-      submissions={submissions ?? []}
+      homework={homework}
+      submissions={signedSubmissions}
       studentUsers={studentUsers ?? []}
     />
   );

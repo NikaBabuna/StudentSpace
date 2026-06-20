@@ -4,11 +4,12 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import type { Attachment } from "@/lib/types";
 
 interface Submission {
   id: string;
   student_id: string;
-  attachments: any[];
+  attachments: Attachment[];
   created_at: string;
   grade: string | null;
 }
@@ -22,7 +23,7 @@ export default function SubmissionsClient({
   classId, hw, studentUsers, submissions, tutorId,
 }: {
   classId: string;
-  hw: { id: string; title: string; description: string | null; deadline: string; attachments: any[] };
+  hw: { id: string; title: string; description: string | null; deadline: string; attachments: Attachment[] };
   studentUsers: StudentUser[];
   submissions: Submission[];
   tutorId: string;

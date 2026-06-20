@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# StudentSpace
 
-## Getting Started
+A structured platform for tutors, students, parents, and employers to manage classes, track progress, and handle payments.
 
-First, run the development server:
+**Live spec:** see [`ReduMe.md`](./ReduMe.md)  
+**Production roadmap:** see [`PRODUCTION-ROADMAP.md`](./PRODUCTION-ROADMAP.md)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Prerequisites
+
+- Node.js 18+
+- npm
+- A [Supabase](https://supabase.com) project (Auth, PostgreSQL, Storage)
+
+## Environment variables
+
+Create `.env.local` in the project root:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-publishable-anon-key
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+These are the **publishable** keys from Supabase → Project Settings → API. Never commit `.env.local`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Local development
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dev
+```
 
-## Learn More
+Open [http://localhost:3000](http://localhost:3000).
 
-To learn more about Next.js, take a look at the following resources:
+## Deployment checklist
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Use this before and after each production deploy.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Vercel
 
-## Deploy on Vercel
+- [ ] `NEXT_PUBLIC_SUPABASE_URL` set in Vercel → Settings → Environment Variables
+- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` set for Production (and Preview if needed)
+- [ ] Latest `main` branch deployed successfully (`npm run build` passes locally)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Supabase Auth
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [ ] **Site URL** matches production domain (e.g. `https://your-app.vercel.app`)
+- [ ] **Redirect URLs** include:
+  - `http://localhost:3000/auth/callback`
+  - `http://localhost:3000/auth/confirm`
+  - `https://your-production-domain/auth/callback`
+  - `https://your-production-domain/auth/confirm`
+- [ ] **Confirm email** enabled (Authentication → Providers → Email) if you require verified signups
+
+### Supabase Storage
+
+- [ ] Buckets exist: `materials`, `homework-attachments` (see `ReduMe.md`)
+
+### Smoke test (production)
+
+- [ ] Sign up → receive confirmation email → verify → log in
+- [ ] Open dashboard → open a class → schedule, homework, chat load
+- [ ] Tutor: post homework; student: submit before deadline
+- [ ] Log out works from sidebar
+
+## Tech stack
+
+| Layer | Tool |
+|-------|------|
+| Framework | Next.js (App Router, TypeScript) |
+| Styling | Tailwind CSS |
+| Backend | Supabase (PostgreSQL, Auth, Storage, Realtime) |
+| Hosting | Vercel |
+
+## Learn more
+
+- [Next.js documentation](https://nextjs.org/docs)
+- [Supabase documentation](https://supabase.com/docs)

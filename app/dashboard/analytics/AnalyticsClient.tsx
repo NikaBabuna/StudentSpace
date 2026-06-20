@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
-const GEL_RATES: Record<string, number> = { GEL: 1, USD: 0.037, EUR: 0.034, RUB: 3.4 };
-const TO_GEL: Record<string, number> = { GEL: 1, USD: 27, EUR: 29.5, RUB: 0.3 };
+const DEFAULT_RATES: Record<string, number> = { GEL: 1, USD: 0.37, EUR: 0.34, RUB: 3.4 };
 const SYMS: Record<string, string> = { GEL: "₾", USD: "$", EUR: "€", RUB: "₽" };
 
 type Range = "week" | "month" | "year" | "all";
@@ -17,8 +16,9 @@ function rangeStart(r: Range): Date | null {
   return null;
 }
 
-function convert(amount: number, from: string, to: string) {
-  return amount * TO_GEL[from] * GEL_RATES[to];
+function convert(amount: number, from: string, to: string, rates: Record<string, number>) {
+  const gelAmount = from === "GEL" ? amount : amount / (rates[from] ?? 1);
+  return to === "GEL" ? gelAmount : gelAmount * (rates[to] ?? 1);
 }
 
 function Card({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
@@ -180,6 +180,25 @@ export default function AnalyticsClient({
   const [tab, setTab] = useState<Tab>(defaultTab);
   const [range, setRange] = useState<Range>("month");
   const [currency, setCurrency] = useState("GEL");
+  const [rates, setRates] = useState(DEFAULT_RATES);
+  const [ratesLive, setRatesLive] = useState(false);
+
+  useEffect(() => {
+    fetch("https://open.er-api.com/v6/latest/GEL")
+      .then(res => res.json())
+      .then(data => {
+        if (data.result === "success" && data.rates) {
+          setRates({
+            GEL: 1,
+            USD: data.rates.USD,
+            EUR: data.rates.EUR,
+            RUB: data.rates.RUB,
+          });
+          setRatesLive(true);
+        }
+      })
+      .catch(() => { /* keep defaults */ });
+  }, []);
 
   const start = useMemo(() => rangeStart(range), [range]);
   const now = new Date();
@@ -253,7 +272,7 @@ export default function AnalyticsClient({
     const cls = tutorClasses.find(t => t.id === c.class_id);
     const amt = c.payment_amount ?? 0;
     const cur = c.payment_currency ?? "GEL";
-    const converted = convert(amt, cur, currency);
+    const converted = convert(amt, cur, currency, rates);
     return {
       classTitle: cls?.title ?? "Unknown",
       cycle: c.cycle_number,
@@ -460,7 +479,7 @@ export default function AnalyticsClient({
         <Legend items={[{ color: "#1a3a5c", label: "Completed" }, { color: "#2a2820", label: "Remaining" }]} />
       </Card>
       <Card title="Earnings">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
           <span className="text-[11px]" style={{ color: "#6a6050" }}>Display currency</span>
           <select value={currency} onChange={e => setCurrency(e.target.value)}
             className="rounded-md text-[11px] px-2 py-1 outline-none"
@@ -470,6 +489,9 @@ export default function AnalyticsClient({
             <option value="EUR">EUR — Euro</option>
             <option value="RUB">RUB — Russian Ruble</option>
           </select>
+          {ratesLive && (
+            <span className="text-[10px]" style={{ color: "#4a6050" }}>Live exchange rates</span>
+          )}
         </div>
         <div className="rounded-lg overflow-hidden" style={{ border: "0.5px solid #2a2820" }}>
           <div className="grid text-[10px] uppercase tracking-wider px-3 py-2"

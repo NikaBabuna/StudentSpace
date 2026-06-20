@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Lint is currently informational: the codebase has a backlog of
+      # `no-explicit-any` errors (tracked as "Eliminate any types" in
+      # PRODUCTION-TASKS-BY-DIFFICULTY.md). Flip continue-on-error to false
+      # once that cleanup lands to make lint a hard gate.
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          # NEXT_PUBLIC_* vars are inlined at build time. The build does not
+          # connect to Supabase (all data routes are dynamic), so placeholders
+          # are sufficient for CI. Set real values as repo secrets to mirror
+          # production exactly.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import type { ClassRole } from "@/lib/types";
 
 const roleColors: Record<string, { bg: string; color: string; border: string }> = {
   student:  { bg: "#2a1e10", color: "#e8a060", border: "#5a3a1a" },
@@ -46,17 +47,23 @@ export default function InboxClient({
 
   const totalPending = pendingInvites.length + pendingParentReqs.length;
 
-  async function respondInvite(inviteId: string, classId: string, role: string, accept: boolean) {
+  async function respondInvite(inviteId: string, classId: string, role: ClassRole, accept: boolean) {
     setLoading(inviteId);
+
+    if (accept) {
+      const { error } = await supabase.from("class_members").insert({
+        class_id: classId, user_id: userId, role,
+      });
+      if (error) {
+        setLoading(null);
+        return;
+      }
+    }
+
     await supabase.from("invites").update({
       status: accept ? "accepted" : "declined",
     }).eq("id", inviteId);
 
-    if (accept) {
-      await supabase.from("class_members").insert({
-        class_id: classId, user_id: userId, role,
-      });
-    }
     setLoading(null);
     router.refresh();
   }

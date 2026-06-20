@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
+import { classCreateSchema, firstError } from "@/lib/validation";
 
 export default function NewClassPage() {
   const router = useRouter();
@@ -28,12 +29,20 @@ export default function NewClassPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    const hours = parseInt(cycleHours) || 8;
+    const parsed = classCreateSchema.safeParse({
+      title, subject, level, description, cycleHours: hours,
+    });
+    if (!parsed.success) {
+      setError(firstError(parsed.error));
+      return;
+    }
+
     setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
-
-    const hours = parseInt(cycleHours) || 8;
 
     const { data: newClass, error: classError } = await supabase
       .from("classes")
