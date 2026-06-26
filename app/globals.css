@@ -1,12 +1,78 @@
+/* =============================================================================
+ * globals.css — StudentSpace design-system foundation
+ * -----------------------------------------------------------------------------
+ * This file is the single source of truth for color, typography, and theming.
+ *
+ * How it is organised (top → bottom):
+ *   1. Tailwind + animation imports.
+ *   2. `dark` custom variant — wired to our `data-theme` attribute (not `.dark`).
+ *   3. `@theme inline` — maps our semantic CSS variables to Tailwind utilities
+ *      (e.g. `bg-surface`, `text-ink`, `text-accent`, `font-serif`). Because it
+ *      is `inline`, the utilities reference the variables at use-site, so a
+ *      single attribute flip on <html> re-themes the whole app with no re-render.
+ *   4. Palette definitions:
+ *        :root            → DARK theme (the default)
+ *        [data-theme=light]→ LIGHT theme (the opt-in toggle)
+ *   5. Legacy `--color-ss-*` aliases — re-pointed at the new palette so screens
+ *      not yet migrated to primitives still adopt the new look. These are
+ *      removed once every page is converted (Phase 6).
+ *   6. Base layer — resets, focus rings, scrollbars, keyframes.
+ *
+ * Editorial palette ported from the supplied redesign mockup
+ * (warm-light + cool-dark, indigo accent, serif display numerals).
+ * ========================================================================== */
+
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* The `dark:` variant triggers whenever <html data-theme="dark"> is set.
+ * The no-FOUC script in app/layout.tsx always writes an explicit data-theme,
+ * so this is reliable both on the server-rendered default and after toggling. */
+@custom-variant dark ([data-theme="dark"] &);
 
+/* -----------------------------------------------------------------------------
+ * Tailwind theme mapping. Left = utility name, right = CSS variable it reads.
+ * Two families live here:
+ *   • Editorial semantic tokens (bg / surface / ink / line / accent / ok / …)
+ *     — what new code should use.
+ *   • shadcn compatibility tokens (background / foreground / card / primary / …)
+ *     — kept so the existing ui/* primitives and pages keep compiling while we
+ *     migrate. Both families resolve to the same underlying palette variables.
+ * -------------------------------------------------------------------------- */
 @theme inline {
+  /* Typography — Geist (sans), Geist Mono (mono), Newsreader (serif display) */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-newsreader);
 
+  /* Editorial surfaces & ink */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+
+  /* Accent + status (each has a solid + a soft "tint" for backgrounds) */
+  --color-accent: var(--accent);
+  --color-accent-press: var(--accent-press);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-tint: var(--accent-tint);
+  /* Brand panel — intentionally the same deep indigo in both themes (used for
+   * the auth marketing panel), so it always reads as "brand", never inverts. */
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-ok: var(--ok);
+  --color-ok-tint: var(--ok-tint);
+  --color-warn: var(--warn);
+  --color-warn-tint: var(--warn-tint);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+
+  /* shadcn compatibility aliases (point at the editorial palette) */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -17,79 +83,235 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* StudentSpace custom tokens */
-  --color-ss-bg:           #1c1a17;
-  --color-ss-bg-secondary: #201e18;
-  --color-ss-sidebar:      #17150f;
-  --color-ss-border:       #3a3630;
-  --color-ss-border-subtle:#2a2820;
-  --color-ss-amber:        #c8a050;
-  --color-ss-amber-light:  #e8c87a;
-  --color-ss-amber-dim:    #2a2010;
-  --color-ss-amber-border: #4a3a10;
-  --color-ss-text-primary: #e8d5b0;
-  --color-ss-text-secondary:#c8b890;
-  --color-ss-text-muted:   #9a8e7a;
-  --color-ss-text-faint:   #6a6050;
-  --color-ss-text-ghost:   #5a5248;
-  --color-ss-green:        #40a870;
-  --color-ss-green-bg:     #10201a;
-  --color-ss-green-border: #1a4030;
-  --color-ss-red:          #c04040;
-  --color-ss-red-bg:       #2a1010;
-  --color-ss-red-border:   #4a1010;
-  --color-ss-purple:       #9090d8;
-  --color-ss-purple-bg:    #1a1a2a;
-  --color-ss-purple-border:#2a2a4a;
-  --color-ss-blue:         #6090c8;
-  --color-ss-blue-bg:      #10203a;
-  --color-ss-blue-border:  #1a3a6a;
-  --color-ss-orange:       #e8a060;
-  --color-ss-orange-bg:    #2a1e10;
-  --color-ss-orange-border:#5a3a1a;
+  /* Radius scale (editorial uses generous 11–16px corners) */
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
 }
 
+/* =============================================================================
+ * DARK THEME — the default. Applied to :root and re-asserted on
+ * [data-theme="dark"] so the `dark:` variant and an explicit attribute agree.
+ * Cool near-black surfaces, soft warm ink, indigo accent. (oklch for smooth,
+ * perceptually-even ramps and easy lightness tweaks.)
+ * ========================================================================== */
+:root,
+[data-theme="dark"] {
+  --bg:        oklch(0.175 0.012 265);
+  --surface:   oklch(0.222 0.015 265);
+  --surface-2: oklch(0.255 0.015 265);
+  --surface-3: oklch(0.29 0.016 265);
+  --ink:       oklch(0.96 0.006 90);
+  --ink-2:     oklch(0.76 0.008 90);
+  --muted:     oklch(0.61 0.012 265);
+  --line:      oklch(0.31 0.014 265);
+  --line-2:    oklch(0.40 0.016 265);
 
+  --accent:       oklch(0.72 0.14 266);
+  --accent-press: oklch(0.66 0.14 266);
+  --accent-ink:   oklch(0.17 0.02 265);
+  --accent-tint:  oklch(0.30 0.06 266);
 
+  /* Theme-stable brand panel (defined only here, so it persists into light). */
+  --brand:     oklch(0.21 0.035 266);
+  --brand-ink: oklch(0.93 0.012 266);
+
+  --ok:          oklch(0.72 0.13 158);
+  --ok-tint:     oklch(0.32 0.06 158);
+  --warn:        oklch(0.78 0.12 75);
+  --warn-tint:   oklch(0.34 0.06 75);
+  --danger:      oklch(0.68 0.16 25);
+  --danger-tint: oklch(0.33 0.07 25);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow:    0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px -16px rgba(0, 0, 0, 0.7);
+
+  --radius: 0.7rem;
+
+  /* Fonts (the stack; the actual face arrives via next/font variables) */
+  --font-sans-stack:  var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  --font-serif-stack: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  --font-mono-stack:  var(--font-geist-mono), ui-monospace, monospace;
+
+  /* shadcn compatibility variables → editorial palette */
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-ink);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--ink);
+  --muted-foreground: var(--muted);
+  --accent-foreground: var(--accent-ink);
+  --destructive: var(--danger);
+  --border: var(--line);
+  --input: var(--line-2);
+  --ring: var(--accent);
+}
+
+/* =============================================================================
+ * LIGHT THEME — opt-in via the topbar toggle (persisted to localStorage).
+ * Warm cream paper, near-black ink, indigo accent. Only the palette changes;
+ * every utility/alias above re-resolves automatically.
+ * ========================================================================== */
+[data-theme="light"] {
+  --bg:        #f3f1eb;
+  --surface:   #ffffff;
+  --surface-2: #faf8f3;
+  --surface-3: #f0ede5;
+  --ink:       #191813;
+  --ink-2:     #56544c;
+  --muted:     #8d8b80;
+  --line:      #e7e3da;
+  --line-2:    #d7d2c6;
+
+  --accent:       oklch(0.52 0.16 264);
+  --accent-press: oklch(0.46 0.16 264);
+  --accent-ink:   #ffffff;
+  --accent-tint:  oklch(0.955 0.03 264);
+
+  --ok:          oklch(0.55 0.11 158);
+  --ok-tint:     oklch(0.95 0.04 158);
+  --warn:        oklch(0.64 0.12 70);
+  --warn-tint:   oklch(0.95 0.05 80);
+  --danger:      oklch(0.55 0.17 25);
+  --danger-tint: oklch(0.95 0.04 25);
+
+  --shadow-sm: 0 1px 2px rgba(25, 22, 12, 0.05);
+  --shadow:    0 1px 2px rgba(25, 22, 12, 0.04), 0 10px 30px -16px rgba(25, 22, 12, 0.18);
+}
+
+/* =============================================================================
+ * LEGACY `--color-ss-*` ALIASES (transitional)
+ * -----------------------------------------------------------------------------
+ * Older screens reference these amber-era tokens via inline styles. Re-pointing
+ * them at the editorial palette means those screens immediately adopt the new
+ * light/dark theming (and auto-adapt when the theme flips) before they are
+ * fully rebuilt with primitives. Deleted in Phase 6 once no references remain.
+ * ========================================================================== */
 :root {
-  --background: #1c1a17;
-  --foreground: #e8d5b0;
-  --card: #201e18;
-  --card-foreground: #e8d5b0;
-  --popover: #201e18;
-  --popover-foreground: #e8d5b0;
-  --primary: #c8a050;
-  --primary-foreground: #1c1a17;
-  --secondary: #2a2318;
-  --secondary-foreground: #e8c87a;
-  --muted: #2a2820;
-  --muted-foreground: #9a8e7a;
-  --accent: #2a2318;
-  --accent-foreground: #e8c87a;
-  --destructive: #c04040;
-  --border: #3a3630;
-  --input: #3a3630;
-  --ring: #c8a050;
-  --radius: 0.5rem;
+  --color-ss-bg:            var(--bg);
+  --color-ss-bg-secondary:  var(--surface);
+  --color-ss-sidebar:       var(--surface);
+  --color-ss-border:        var(--line);
+  --color-ss-border-subtle: var(--line);
+
+  /* "amber" brand slots now carry the indigo accent */
+  --color-ss-amber:        var(--accent);
+  --color-ss-amber-light:  var(--accent);
+  --color-ss-amber-dim:    var(--accent-tint);
+  --color-ss-amber-border: var(--accent);
+
+  --color-ss-text-primary:   var(--ink);
+  --color-ss-text-secondary: var(--ink-2);
+  --color-ss-text-muted:     var(--muted);
+  --color-ss-text-faint:     var(--muted);
+  --color-ss-text-ghost:     var(--muted);
+
+  --color-ss-green:        var(--ok);
+  --color-ss-green-bg:     var(--ok-tint);
+  --color-ss-green-border: var(--ok);
+  --color-ss-red:          var(--danger);
+  --color-ss-red-bg:       var(--danger-tint);
+  --color-ss-red-border:   var(--danger);
+
+  /* Categorical hues (avatars, charts) — kept distinct, readable on both themes */
+  --color-ss-purple:        oklch(0.7 0.11 290);
+  --color-ss-purple-bg:     oklch(0.32 0.06 290);
+  --color-ss-purple-border: oklch(0.45 0.08 290);
+  --color-ss-blue:          oklch(0.7 0.11 245);
+  --color-ss-blue-bg:       oklch(0.32 0.06 245);
+  --color-ss-blue-border:   oklch(0.45 0.08 245);
+  --color-ss-orange:        oklch(0.74 0.13 55);
+  --color-ss-orange-bg:     oklch(0.33 0.06 55);
+  --color-ss-orange-border: oklch(0.48 0.09 55);
 }
 
+/* =============================================================================
+ * BASE LAYER — global element defaults.
+ * ========================================================================== */
 @layer base {
   * {
+    /* Default border + focus-ring color come from the palette. */
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
     @apply font-sans;
+    /* Smooth, even text on the warm/cool surfaces. */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-bg text-ink;
+    font-family: var(--font-sans-stack);
+  }
+
+  /* Selection + placeholders use the accent / muted tokens. */
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted);
+  }
+
+  /* Custom scrollbars that blend with the surface. */
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-2);
+    border-radius: 10px;
+    border: 3px solid var(--bg);
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* Animations reused by primitives (spinners, toasts, entrance transitions). */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translate(0, 14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes shimmer {
+  to {
+    background-position-x: 0%;
   }
 }

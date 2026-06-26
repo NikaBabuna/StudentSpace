@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import AppLayout from "@/components/layout/AppLayout";
+import { AppShell } from "@/components/shell/app-shell";
 import InboxClient from "./InboxClient";
 
 export default async function InboxPage() {
@@ -35,12 +35,12 @@ export default async function InboxPage() {
   const userInitials = fullName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
 
   return (
-    <AppLayout mode="dashboard" tutorInitials={userInitials} tutorName={fullName} role="tutor">
+    <AppShell mode="dashboard" tutorInitials={userInitials} tutorName={fullName} role="tutor" breadcrumb={{ root: "Inbox" }}>
       <InboxClient
         invites={invites ?? []}
         parentRequests={parentRequests ?? []}
         userId={user.id}
       />
-    </AppLayout>
+    </AppShell>
   );
 }

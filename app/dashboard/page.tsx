@@ -1,4 +1,4 @@
-import AppLayout from "@/components/layout/AppLayout";
+import { AppShell } from "@/components/shell/app-shell";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import DashboardClient from "./DashboardClient";
@@ -83,7 +83,7 @@ export default async function DashboardPage() {
   const userInitials = fullName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
 
   return (
-    <AppLayout mode="dashboard" tutorInitials={userInitials} tutorName={fullName} role="tutor">
+    <AppShell mode="dashboard" tutorInitials={userInitials} tutorName={fullName} role="tutor" breadcrumb={{ root: "Dashboard" }}>
       <DashboardClient
         userId={user.id}
         firstName={firstName}
@@ -96,6 +96,6 @@ export default async function DashboardPage() {
         avatarColors={avatarColors}
         roleConfig={roleConfig}
       />
-    </AppLayout>
+    </AppShell>
   );
 }

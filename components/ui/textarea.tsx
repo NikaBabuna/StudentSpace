@@ -1,20 +1,18 @@
 /* =============================================================================
- * ui/input.tsx — text input
+ * ui/textarea.tsx — multi-line text input
  * -----------------------------------------------------------------------------
- * 44px token-styled input with focus ring and aria-invalid styling. Pair with
- * <Field> for label + error, or use standalone.
+ * Same visual language as <Input>, taller, vertically resizable.
  * ========================================================================== */
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   return (
-    <input
-      type={type}
-      data-slot="input"
+    <textarea
+      data-slot="textarea"
       className={cn(
-        "h-11 w-full min-w-0 rounded-xl border border-line-2 bg-surface px-3.5 text-sm text-ink transition-colors outline-none placeholder:text-muted",
+        "min-h-[88px] w-full resize-y rounded-xl border border-line-2 bg-surface px-3.5 py-2.5 text-sm leading-relaxed text-ink transition-colors outline-none placeholder:text-muted",
         "focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30",
         "disabled:pointer-events-none disabled:opacity-55",
         "aria-invalid:border-danger aria-invalid:ring-2 aria-invalid:ring-danger/25",
@@ -25,4 +23,4 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   );
 }
 
-export { Input };
+export { Textarea };

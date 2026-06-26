@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import AppLayout from "@/components/layout/AppLayout";
+import { AppShell } from "@/components/shell/app-shell";
 import AnalyticsClient from "./AnalyticsClient";
 
 export default async function AnalyticsPage() {
@@ -86,7 +86,7 @@ const parentChildren = await Promise.all(
 );
 
 return (
-  <AppLayout mode="dashboard" tutorInitials={userInitials} tutorName={fullName} role="tutor">
+  <AppShell mode="dashboard" tutorInitials={userInitials} tutorName={fullName} role="tutor" breadcrumb={{ root: "Analytics" }}>
     <AnalyticsClient
       userId={user.id}
       tutorClasses={tutorMemberships.map((m: any) => m.classes)}
@@ -98,6 +98,6 @@ return (
       cycles={allCycles ?? []}
       classMembers={allCycleMembers ?? []}
     />
-  </AppLayout>
+  </AppShell>
 );
 }

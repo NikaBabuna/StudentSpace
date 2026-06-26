@@ -1,164 +1,146 @@
-'use client'
+/* =============================================================================
+ * app/login/page.tsx — sign in
+ * -----------------------------------------------------------------------------
+ * Email/password login via Supabase. Behaviour is unchanged from before:
+ *   • surfaces "verify your email" / confirmation-failed messages from query
+ *     params and from the sign-in error,
+ *   • routes employers to /employer and everyone else to /dashboard.
+ * Only the presentation changed — split-panel AuthShell + primitives.
+ * ========================================================================== */
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/utils/supabase/client'
-import Link from 'next/link'
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+import { createClient } from "@/utils/supabase/client";
+import { AuthShell } from "@/components/shell/auth-shell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Field } from "@/components/ui/field";
 
 export default function LoginPage() {
-  const router = useRouter()
-  const supabase = createClient()
+  const router = useRouter();
+  const supabase = createClient();
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
+  // Pick up post-verification / failed-confirmation hints from the URL.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('verified') === '1') {
-      setNotice('Email verified. You can log in now.')
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("verified") === "1") {
+      setNotice("Email verified. You can log in now.");
     }
-    if (params.get('error') === 'confirmation_failed') {
-      setError('Email confirmation failed or the link expired. Try signing up again or contact support.')
+    if (params.get("error") === "confirmation_failed") {
+      setError(
+        "Email confirmation failed or the link expired. Try signing up again or contact support."
+      );
     }
-  }, [])
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setNotice(null)
-    setLoading(true)
+    e.preventDefault();
+    setError(null);
+    setNotice(null);
+    setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      const msg = error.message.toLowerCase()
-      if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
-        setError('Please verify your email before logging in. Check your inbox for the confirmation link.')
+      setLoading(false);
+      const msg = error.message.toLowerCase();
+      if (msg.includes("email not confirmed") || msg.includes("not confirmed")) {
+        setError(
+          "Please verify your email before logging in. Check your inbox for the confirmation link."
+        );
       } else {
-        setError(error.message)
+        setError(error.message);
       }
-      return
+      return;
     }
 
+    // Route employers to their portal, everyone else to the dashboard.
     const { data: profile } = await supabase
       .from("users")
       .select("is_employer")
       .eq("id", (await supabase.auth.getUser()).data.user!.id)
-      .single()
+      .single();
 
-    router.push(profile?.is_employer ? '/employer' : '/dashboard')
-    router.refresh()
+    router.push(profile?.is_employer ? "/employer" : "/dashboard");
+    router.refresh();
   }
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center relative"
-      style={{ background: "var(--color-ss-bg)" }}
-    >
-      {/* Back button */}
-      <Link
-        href="/"
-        className="absolute top-6 left-6 flex items-center gap-1.5 text-[12px]"
-        style={{ color: "var(--color-ss-text-faint)", textDecoration: "none", opacity: 0.8 }}
-        onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
-        onMouseLeave={e => (e.currentTarget.style.opacity = "0.8")}
-      >
-        ← Back
-      </Link>
+    <AuthShell>
+      <h2 className="font-serif text-[30px] leading-[1.1] tracking-[-0.01em] text-ink">
+        Welcome back
+      </h2>
+      <p className="mt-1.5 mb-7 text-[15px] text-ink-2">Log in to your StudentSpace account.</p>
 
-      {/* Logo */}
-      <Link href="/" className="mb-10 text-center" style={{ textDecoration: "none" }}
-        onMouseEnter={e => (e.currentTarget.style.opacity = "0.75")}
-        onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
-      >
-        <div className="text-[28px] font-medium mb-1" style={{ color: "var(--color-ss-text-primary)" }}>
-          StudentSpace
-        </div>
-        <div className="text-[13px]" style={{ color: "var(--color-ss-text-faint)" }}>
-          Log in to your account
-        </div>
-      </Link>
+      <form onSubmit={handleLogin} className="flex flex-col gap-4">
+        <Field label="Email" htmlFor="email">
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="you@example.com"
+            autoComplete="email"
+          />
+        </Field>
 
-      {/* Card */}
-      <div
-        className="w-[360px] rounded-xl p-8"
-        style={{ background: "var(--color-ss-bg-secondary)", border: "0.5px solid var(--color-ss-border)" }}
-      >
-        <form onSubmit={handleLogin} className="flex flex-col gap-4">
-          <div>
-            <label className="text-[11px] mb-1.5 block" style={{ color: "var(--color-ss-text-faint)" }}>
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              placeholder="you@example.com"
-              className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
-              style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }}
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] mb-1.5 block" style={{ color: "var(--color-ss-text-faint)" }}>
-              Password
-            </label>
-            <input
-              type="password"
+        <Field label="Password" htmlFor="password">
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPass ? "text" : "password"}
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="••••••••"
-              className="w-full px-3 py-2 rounded-md text-[13px] outline-none"
-              style={{ background: "#17150f", border: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }}
+              autoComplete="current-password"
+              className="pr-16"
             />
+            <button
+              type="button"
+              onClick={() => setShowPass((v) => !v)}
+              className="absolute right-1.5 top-1.5 h-8 rounded-lg px-2.5 text-[13px] font-medium text-muted hover:text-ink"
+            >
+              {showPass ? "Hide" : "Show"}
+            </button>
           </div>
+        </Field>
 
-          {notice && (
-            <div className="text-[12px] px-3 py-2 rounded-md"
-              style={{ background: "#10201a", color: "#40a870", border: "0.5px solid #1a4030" }}>
-              {notice}
-            </div>
-          )}
+        {notice ? (
+          <div className="rounded-lg bg-ok-tint px-3 py-2 text-[12.5px] text-ok">{notice}</div>
+        ) : null}
+        {error ? (
+          <div className="rounded-lg bg-danger-tint px-3 py-2 text-[12.5px] text-danger">{error}</div>
+        ) : null}
 
-          {error && (
-            <div className="text-[12px] px-3 py-2 rounded-md"
-              style={{ background: "var(--color-ss-red-bg)", color: "var(--color-ss-red)", border: "0.5px solid var(--color-ss-red-border)" }}>
-              {error}
-            </div>
-          )}
+        <Button type="submit" busy={loading} className="mt-1 w-full">
+          {loading ? "Logging in…" : "Log in"}
+        </Button>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full text-[14px] font-medium py-2.5 rounded-lg mt-1"
-            style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", opacity: loading ? 0.6 : 1 }}
-          >
-            {loading ? 'Logging in…' : 'Log in'}
-          </button>
+        <div className="my-1 flex items-center gap-3.5">
+          <div className="h-px flex-1 bg-line" />
+          <span className="text-[13px] text-muted">or</span>
+          <div className="h-px flex-1 bg-line" />
+        </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex-1" style={{ height: "0.5px", background: "#2a2820" }} />
-            <span className="text-[10px]" style={{ color: "#3a3630" }}>or</span>
-            <div className="flex-1" style={{ height: "0.5px", background: "#2a2820" }} />
-          </div>
-
-          <Link
-            href="/signup"
-            className="w-full text-[13px] font-medium py-2.5 rounded-lg text-center"
-            style={{ color: "var(--color-ss-text-muted)", border: "0.5px solid var(--color-ss-border)", textDecoration: "none" }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = "#5a5248")}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--color-ss-border)")}
-          >
-            Register
+        <p className="text-center text-sm text-ink-2">
+          New here?{" "}
+          <Link href="/signup" className="font-semibold text-accent hover:underline">
+            Create an account
           </Link>
-        </form>
-      </div>
-    </div>
-  )
+        </p>
+      </form>
+    </AuthShell>
+  );
 }

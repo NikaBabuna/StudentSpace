@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import AppLayout from "@/components/layout/AppLayout";
+import { AppShell } from "@/components/shell/app-shell";
 import AccessClient from "./AccessClient";
 
 export default async function AccessPage() {
@@ -38,13 +38,13 @@ export default async function AccessPage() {
   const userInitials = fullName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
 
   return (
-    <AppLayout mode="dashboard" tutorInitials={userInitials} tutorName={fullName} role="tutor">
+    <AppShell mode="dashboard" tutorInitials={userInitials} tutorName={fullName} role="tutor" breadcrumb={{ root: "Settings", leaf: "Access & accounts" }}>
       <AccessClient
         userId={user.id}
         children={children ?? []}
         parents={parents ?? []}
         sentRequests={sentRequests ?? []}
       />
-    </AppLayout>
+    </AppShell>
   );
 }
