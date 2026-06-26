@@ -47,7 +47,8 @@ Meaningful production improvements. Most of the security and architecture work l
 > - ✅ Add Zod validation to forms — `lib/validation.ts`; wired into signup, class create, homework post, lesson schedule.
 > - ✅ Add Vitest + unit tests — `lib/payments.ts` + `lib/homework.ts` extracted and tested (13 tests); `npm test` runs in CI.
 > - ✅ Build employer analytics page — `app/employer/analytics/` (per-class hours/lessons/earnings, fully typed).
-> - 🟡 Move mutations to Server Actions — done for the security-critical one (`submitHomework` enforces the deadline server-side in `app/classes/[id]/homework/actions.ts`). Remaining mutations are role-gated and now covered by RLS; migrate incrementally.
+> - ✅ Move mutations to Server Actions — **all** client-side DB writes now go through `"use server"` actions with auth + role checks (schedule, homework, submissions, materials, chat, invites, inbox, dashboard class edit/delete, access links, member removal, class creation). Storage uploads stay client-side. Payment-cycle close moved server-side, fixing the `ScheduleClient` race. See `CHANGELOG.md`.
+> - ✅ Add error/loading UI — `error.tsx` for dashboard/class/employer; `loading.tsx` for employer/inbox/settings.
 > - 🟡 Export Supabase schema to migrations — baseline reconstructed in `supabase/migrations/0001_initial_schema.sql`; a true `pg_dump` of RLS policies + functions still pending.
 > - 🟡 Eliminate `any` types — typed clients + shared types (`Attachment`, `ClassRole`, `ClassSummary`) in place; lint errors 99 → 81. Remaining are mostly in the analytics/dashboard data-aggregation files.
 > - 🟡 Private storage + signed URLs — CODE DONE: signed URLs via `lib/storage.ts`, wired into materials + homework + submissions pages (public-URL fallback so nothing breaks pre-flip). RLS mirrored to `supabase/migrations/0002_rls_policies.sql`; storage policies in `0003_storage_policies.sql`. Remaining = deploy → run 0003 → flip both buckets to private → verify.
