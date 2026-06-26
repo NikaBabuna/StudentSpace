@@ -2,7 +2,7 @@
 -- 0001_initial_schema.sql  —  StudentSpace baseline schema
 -- =============================================================================
 -- This file is a hand-reconstructed baseline of the live Supabase schema,
--- derived from the generated types (lib/database.types.ts) and ReduMe.md.
+-- derived from the generated types (lib/database.types.ts) and docs/PRODUCT.md.
 --
 -- PURPOSE: put the schema under version control for review and onboarding.
 --

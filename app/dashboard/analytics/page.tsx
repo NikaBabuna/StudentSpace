@@ -1,7 +1,17 @@
+/* =============================================================================
+ * app/dashboard/analytics/page.tsx — tutor analytics route loader
+ * -----------------------------------------------------------------------------
+ * Role: Batches lessons, homework, submissions, cycles for the user’s classes;
+ *       renders AnalyticsClient inside AppShell.
+ * Dependencies: lib/auth, AppShell, AnalyticsClient
+ * Used by: Route /dashboard/analytics
+ * Inputs: Current user and class memberships
+ * Outputs: Serializable analytics dataset for client charts
+ * ========================================================================== */
 import { redirect } from "next/navigation";
 import { getServerClient, getCurrentUser } from "@/lib/auth";
 import { AppShell } from "@/components/shell/app-shell";
-import AnalyticsClient from "./AnalyticsClient";
+import AnalyticsClient from "@/features/dashboard/components/AnalyticsClient";
 
 export default async function AnalyticsPage() {
   const supabase = await getServerClient();

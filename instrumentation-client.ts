@@ -1,5 +1,11 @@
-// Sentry initialisation for the browser.
-// Next.js loads this automatically on the client (instrumentation-client).
+/* =============================================================================
+ * instrumentation-client.ts — browser Sentry bootstrap
+ * -----------------------------------------------------------------------------
+ * Role: Initialises Sentry in the browser when NEXT_PUBLIC_SENTRY_DSN is set.
+ *       Exports onRouterTransitionStart for navigation-linked error context.
+ * Dependencies: @sentry/nextjs
+ * Used by: Next.js client instrumentation
+ * ========================================================================== */
 import * as Sentry from "@sentry/nextjs";
 
 Sentry.init({

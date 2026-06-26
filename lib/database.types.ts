@@ -1,3 +1,10 @@
+/* =============================================================================
+ * lib/database.types.ts — GENERATED Supabase TypeScript types
+ * -----------------------------------------------------------------------------
+ * Role: Typed Database schema for Supabase clients. Do not edit by hand.
+ * Regenerate: npx supabase gen types typescript --project-id <ref> > lib/database.types.ts
+ * Used by: lib/supabase/*, all server actions and loaders
+ * ========================================================================== */
 export type Json =
   | string
   | number
@@ -214,6 +221,7 @@ export type Database = {
           duration_hours: number
           id: string
           payment_cycle_id: string | null
+          recurring_schedule_id: string | null
           replaces_lesson_id: string | null
           scheduled_at: string
           status: Database["public"]["Enums"]["lesson_status"]
@@ -225,6 +233,7 @@ export type Database = {
           duration_hours: number
           id?: string
           payment_cycle_id?: string | null
+          recurring_schedule_id?: string | null
           replaces_lesson_id?: string | null
           scheduled_at: string
           status?: Database["public"]["Enums"]["lesson_status"]
@@ -236,6 +245,7 @@ export type Database = {
           duration_hours?: number
           id?: string
           payment_cycle_id?: string | null
+          recurring_schedule_id?: string | null
           replaces_lesson_id?: string | null
           scheduled_at?: string
           status?: Database["public"]["Enums"]["lesson_status"]
@@ -260,6 +270,79 @@ export type Database = {
             columns: ["replaces_lesson_id"]
             isOneToOne: false
             referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lessons_recurring_schedule_id_fkey"
+            columns: ["recurring_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurring_schedules: {
+        Row: {
+          active: boolean
+          anchor_date: string
+          class_id: string
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          duration_hours: number
+          generated_until: string | null
+          id: string
+          interval_weeks: number
+          start_time: string
+          timezone: string
+          until_date: string | null
+          weekday: number
+        }
+        Insert: {
+          active?: boolean
+          anchor_date?: string
+          class_id: string
+          created_at?: string
+          created_by: string
+          deleted_at?: string | null
+          duration_hours: number
+          generated_until?: string | null
+          id?: string
+          interval_weeks?: number
+          start_time: string
+          timezone?: string
+          until_date?: string | null
+          weekday: number
+        }
+        Update: {
+          active?: boolean
+          anchor_date?: string
+          class_id?: string
+          created_at?: string
+          created_by?: string
+          deleted_at?: string | null
+          duration_hours?: number
+          generated_until?: string | null
+          id?: string
+          interval_weeks?: number
+          start_time?: string
+          timezone?: string
+          until_date?: string | null
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_schedules_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -608,6 +691,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      clear_future_recurring_lessons: {
+        Args: { p_schedule_id: string; p_from?: string }
+        Returns: number
+      }
+      generate_all_recurring_lessons: {
+        Args: { p_horizon_weeks?: number }
+        Returns: number
+      }
+      generate_recurring_lessons: {
+        Args: { p_schedule_id: string; p_horizon_weeks?: number }
+        Returns: number
+      }
       has_pending_invite_to_class: {
         Args: { p_class_id: string }
         Returns: boolean

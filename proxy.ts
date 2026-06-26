@@ -1,9 +1,16 @@
+/* =============================================================================
+ * proxy.ts — request gate (Next.js 16 “proxy”, formerly middleware)
+ * -----------------------------------------------------------------------------
+ * Role: Runs before every matched request. Keeps the Supabase session cookie
+ *       fresh and blocks unauthenticated access to protected route prefixes.
+ * Dependencies: lib/supabase/middleware.ts (updateSession)
+ * Used by: Next.js runtime on each HTTP request
+ * Inputs: NextRequest from the incoming browser/API call
+ * Outputs: NextResponse — either next() with refreshed cookies or redirect
+ *          to /login for protected paths without a session
+ * ========================================================================== */
 import { type NextRequest } from "next/server";
-import { updateSession } from "@/utils/supabase/middleware";
-
-// Next.js 16 renamed the "middleware" convention to "proxy". This runs before
-// every matched request: it refreshes the Supabase session cookie and gates
-// protected routes (see utils/supabase/middleware.ts).
+import { updateSession } from "@/lib/supabase/middleware";
 export async function proxy(request: NextRequest) {
   return await updateSession(request);
 }

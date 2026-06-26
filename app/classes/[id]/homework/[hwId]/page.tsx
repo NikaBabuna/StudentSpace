@@ -1,6 +1,16 @@
+/* =============================================================================
+ * app/classes/[id]/homework/[hwId]/page.tsx — single homework grading view
+ * -----------------------------------------------------------------------------
+ * Role: Loads one homework item and all submissions with signed attachments;
+ *       tutor-only grading via SubmissionsClient.
+ * Dependencies: lib/auth, lib/storage, SubmissionsClient
+ * Used by: Route /classes/[id]/homework/[hwId]
+ * Inputs: params.id, params.hwId
+ * Outputs: SubmissionsClient props or redirect if not tutor
+ * ========================================================================== */
 import { redirect } from "next/navigation";
 import { getServerClient, requireAuth, getClassMembership } from "@/lib/auth";
-import SubmissionsClient from "./SubmissionsClient";
+import SubmissionsClient from "@/features/homework/components/SubmissionsClient";
 import { toAttachments } from "@/lib/types";
 import { signAttachments, HOMEWORK_BUCKET } from "@/lib/storage";
 

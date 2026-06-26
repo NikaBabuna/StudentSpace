@@ -1,5 +1,15 @@
+/* =============================================================================
+ * app/classes/[id]/homework/page.tsx — class homework tab loader
+ * -----------------------------------------------------------------------------
+ * Role: Loads homework rows and latest submissions per student; signs attachment
+ *       URLs; renders HomeworkClient with role-aware data.
+ * Dependencies: lib/auth, lib/storage, lib/types, HomeworkClient
+ * Used by: Route /classes/[id]/homework
+ * Inputs: params.id
+ * Outputs: HomeworkClient props (items, role, studentId)
+ * ========================================================================== */
 import { getServerClient, requireAuth, getClassMembership } from "@/lib/auth";
-import HomeworkClient from "./HomeworkClient";
+import HomeworkClient from "@/features/homework/components/HomeworkClient";
 import { toAttachments } from "@/lib/types";
 import { signAttachments, HOMEWORK_BUCKET } from "@/lib/storage";
 

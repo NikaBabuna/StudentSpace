@@ -1,4 +1,12 @@
-// Shared domain types that aren't auto-generated from the database schema.
+/* =============================================================================
+ * lib/types.ts — shared domain types (client-safe)
+ * -----------------------------------------------------------------------------
+ * Role: Types and helpers that client components can import without pulling
+ *       in server-only modules. Mirrors Postgres enums where needed.
+ * Dependencies: None (no Supabase imports)
+ * Used by: Features, components, lib/auth, validation consumers
+ * Exports: ClassRole, ClassSummary, Attachment, toAttachments()
+ * ========================================================================== */
 
 /**
  * A member's role within a class. Matches the `class_member_role` /

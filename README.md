@@ -1,77 +1,75 @@
 # StudentSpace
 
-A structured platform for tutors, students, parents, and employers to manage classes, track progress, and handle payments.
+**The operations layer for private tutoring.**
 
-**Live spec:** see [`ReduMe.md`](./ReduMe.md)  
-**Production roadmap:** see [`PRODUCTION-ROADMAP.md`](./PRODUCTION-ROADMAP.md)
+StudentSpace gives every class a shared workspace — schedule, homework, materials, chat, and payment cycles in one place. Built for tutors, students, parents, and employers.
 
-## Prerequisites
+---
 
-- Node.js 18+
-- npm
-- A [Supabase](https://supabase.com) project (Auth, PostgreSQL, Storage)
+## Features
 
-## Environment variables
+| | |
+| --- | --- |
+| **Classes** | Shared workspace per subject or group |
+| **Schedule** | Weekly calendar, makeups, recurring lessons, payment cycles |
+| **Homework** | Assignments, file submissions, tutor feedback |
+| **Materials** | Organised file library with drag-and-drop upload |
+| **Chat** | Live class messaging |
+| **Analytics** | Attendance, homework completion, earnings by role |
+| **Employer portal** | Read-only oversight for organisation accounts |
 
-Create `.env.local` in the project root:
+---
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-publishable-anon-key
-```
+## Quick start
 
-These are the **publishable** keys from Supabase → Project Settings → API. Never commit `.env.local`.
-
-## Local development
+**Requirements:** Node.js 20+, npm, a [Supabase](https://supabase.com) project
 
 ```bash
 npm install
+cp .env.example .env.local   # add your Supabase URL and anon key
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Deployment checklist
+```bash
+npm run build    # production build
+npm test         # unit tests
+npm run lint     # ESLint
+```
 
-Use this before and after each production deploy.
+---
 
-### Vercel
+## Documentation
 
-- [ ] `NEXT_PUBLIC_SUPABASE_URL` set in Vercel → Settings → Environment Variables
-- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` set for Production (and Preview if needed)
-- [ ] Latest `main` branch deployed successfully (`npm run build` passes locally)
+| Guide | Contents |
+| --- | --- |
+| [**Product**](docs/PRODUCT.md) | Schema, roles, business rules, feature roadmap |
+| [**Engineering**](docs/ENGINEERING.md) | Architecture, local dev, deployment, design system |
+| [**Roadmap**](docs/ROADMAP.md) | Production hardening backlog and status |
 
-### Supabase Auth
+[Changelog](CHANGELOG.md)
 
-- [ ] **Site URL** matches production domain (e.g. `https://your-app.vercel.app`)
-- [ ] **Redirect URLs** include:
-  - `http://localhost:3000/auth/callback`
-  - `http://localhost:3000/auth/confirm`
-  - `https://your-production-domain/auth/callback`
-  - `https://your-production-domain/auth/confirm`
-- [ ] **Confirm email** enabled (Authentication → Providers → Email) if you require verified signups
+---
 
-### Supabase Storage
+## Stack
 
-- [ ] Buckets exist: `materials`, `homework-attachments` (see `ReduMe.md`)
+Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · Supabase · Vercel
 
-### Smoke test (production)
+---
 
-- [ ] Sign up → receive confirmation email → verify → log in
-- [ ] Open dashboard → open a class → schedule, homework, chat load
-- [ ] Tutor: post homework; student: submit before deadline
-- [ ] Log out works from sidebar
+## Repository
 
-## Tech stack
+```
+app/                  Routes (thin server pages)
+features/             Domain modules (components, actions, lib)
+components/ui/        Design-system primitives
+components/shell/     App chrome
+lib/                  Auth, Supabase clients, shared logic
+supabase/migrations/  Versioned SQL
+docs/                 Product, engineering, roadmap
+```
 
-| Layer | Tool |
-|-------|------|
-| Framework | Next.js (App Router, TypeScript) |
-| Styling | Tailwind CSS |
-| Backend | Supabase (PostgreSQL, Auth, Storage, Realtime) |
-| Hosting | Vercel |
+---
 
-## Learn more
-
-- [Next.js documentation](https://nextjs.org/docs)
-- [Supabase documentation](https://supabase.com/docs)
+*Private project · Built in Tbilisi, Georgia*

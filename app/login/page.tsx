@@ -13,7 +13,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { AuthShell } from "@/components/shell/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

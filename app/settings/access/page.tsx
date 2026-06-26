@@ -1,7 +1,16 @@
+/* =============================================================================
+ * app/settings/access/page.tsx — parent-child linking settings
+ * -----------------------------------------------------------------------------
+ * Role: Loads parent_students links and renders AccessClient in AppShell.
+ * Dependencies: lib/auth, AppShell, AccessClient
+ * Used by: Route /settings/access
+ * Inputs: Current user id
+ * Outputs: Linked parents/children for AccessClient
+ * ========================================================================== */
 import { redirect } from "next/navigation";
 import { getServerClient, getCurrentUser } from "@/lib/auth";
 import { AppShell } from "@/components/shell/app-shell";
-import AccessClient from "./AccessClient";
+import AccessClient from "@/features/settings/components/AccessClient";
 
 export default async function AccessPage() {
   const supabase = await getServerClient();

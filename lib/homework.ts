@@ -1,5 +1,13 @@
-// Pure homework deadline logic. No React/Supabase so it's unit-testable and
-// shareable between the client UI and server-side submission guards.
+/* =============================================================================
+ * lib/homework.ts — homework deadline rules (pure functions)
+ * -----------------------------------------------------------------------------
+ * Role: Classifies deadlines (overdue/today/soon/upcoming) and decides if a
+ *       student can still submit. Shared by UI badges and server guards.
+ * Dependencies: None
+ * Used by: HomeworkClient, submitHomework action, lib/homework.test.ts
+ * Inputs: ISO deadline string, optional now Date
+ * Outputs: DeadlineStatus enum, canSubmit boolean
+ * ========================================================================== */
 
 export type DeadlineStatus = "overdue" | "today" | "soon" | "upcoming";
 

@@ -1,5 +1,14 @@
-// Pure payment-cycle business logic. Kept free of React/Supabase so it can be
-// unit-tested and reused by both client components and (later) server actions.
+/* =============================================================================
+ * lib/payments.ts — payment-cycle business logic (pure functions)
+ * -----------------------------------------------------------------------------
+ * Role: Implements the “A2 overflow rollover” rule: when completing a lesson
+ *       would exceed cycle_hours, close the cycle and carry overflow forward.
+ *       No React or Supabase — safe for unit tests and server actions.
+ * Dependencies: None
+ * Used by: features/schedule/actions.ts (completeLesson), lib/payments.test.ts
+ * Inputs: Lesson hours, cycle totals, cycle target
+ * Outputs: { closesCycle, overflowHours }, sumCompletedHours()
+ * ========================================================================== */
 
 export interface CycleLessonInput {
   duration_hours: number;

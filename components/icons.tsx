@@ -214,3 +214,30 @@ export const ArrowRightIcon = (p: IconProps) => (
     <path d="M3.5 9h11M10.5 5l4 4-4 4" />
   </Icon>
 );
+
+export const RepeatIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12.5 1.5l3 3-3 3" />
+    <path d="M2.5 8.5v-.5a3 3 0 0 1 3-3h10" />
+    <path d="M5.5 16.5l-3-3 3-3" />
+    <path d="M15.5 9.5v.5a3 3 0 0 1-3 3h-10" />
+  </Icon>
+);
+
+export const PauseIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M6.5 4v10M11.5 4v10" />
+  </Icon>
+);
+
+export const PlayIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5.5 3.5l9 5.5-9 5.5z" />
+  </Icon>
+);
+
+export const TrashIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M3 5h12M7 5V3.5h4V5M5 5l.7 9.5h6.6L13 5" />
+  </Icon>
+);

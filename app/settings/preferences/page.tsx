@@ -4,11 +4,11 @@
  * Placeholder settings screen. Data/auth flow unchanged; presentation moved to
  * the AppShell + primitives (PageHeader, EmptyState) instead of inline styles.
  * ========================================================================== */
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/shell/app-shell";
-import { PageContainer, PageHeader } from "@/components/shell/page";
+import { PageContainer, PageHeader } from "@/components/shell/page-container";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SettingsIcon } from "@/components/icons";
 

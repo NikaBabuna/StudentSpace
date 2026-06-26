@@ -1,3 +1,6 @@
+// vitest.config.ts — unit test runner configuration
+// Role: Runs Vitest on lib/*.test.ts with Node environment and @ alias.
+// Used by: npm test
 import { defineConfig } from "vitest/config";
 import path from "path";
 

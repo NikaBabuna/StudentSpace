@@ -1,7 +1,16 @@
+/* =============================================================================
+ * app/classes/new/page.tsx — create new class wizard route
+ * -----------------------------------------------------------------------------
+ * Role: Authenticated tutors open the multi-step NewClassForm inside AppShell.
+ * Dependencies: lib/auth, AppShell, NewClassForm
+ * Used by: Route /classes/new
+ * Inputs: Session user profile for shell display
+ * Outputs: AppShell + NewClassForm
+ * ========================================================================== */
 import { getServerClient, requireAuth } from "@/lib/auth";
 import { AppShell } from "@/components/shell/app-shell";
-import { PageContainer, PageHeader } from "@/components/shell/page";
-import NewClassForm from "./NewClassForm";
+import { PageContainer } from "@/components/shell/page-container";
+import NewClassForm from "@/features/classes/components/NewClassForm";
 
 export default async function NewClassPage() {
   const user = await requireAuth();
@@ -29,11 +38,7 @@ export default async function NewClassPage() {
       role="tutor"
       breadcrumb={{ root: "Classes", leaf: "New class" }}
     >
-      <PageContainer className="max-w-[760px]">
-        <PageHeader
-          title="Create a class"
-          sub="Set up a new session space for your student."
-        />
+      <PageContainer className="max-w-[660px]">
         <NewClassForm />
       </PageContainer>
     </AppShell>

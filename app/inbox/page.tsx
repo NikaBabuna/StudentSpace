@@ -1,7 +1,17 @@
+/* =============================================================================
+ * app/inbox/page.tsx — invites and parent-link requests inbox
+ * -----------------------------------------------------------------------------
+ * Role: Loads pending class invites and parent_requests for the current user;
+ *       renders AppShell + InboxClient.
+ * Dependencies: lib/auth, AppShell, InboxClient
+ * Used by: Route /inbox
+ * Inputs: Session user id
+ * Outputs: InboxClient with invites and parentRequests arrays
+ * ========================================================================== */
 import { redirect } from "next/navigation";
 import { getServerClient, getCurrentUser } from "@/lib/auth";
 import { AppShell } from "@/components/shell/app-shell";
-import InboxClient from "./InboxClient";
+import InboxClient from "@/features/inbox/components/InboxClient";
 
 export default async function InboxPage() {
   const supabase = await getServerClient();

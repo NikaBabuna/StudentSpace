@@ -1,6 +1,16 @@
+/* =============================================================================
+ * app/auth/confirm/route.ts — email OTP verification handler
+ * -----------------------------------------------------------------------------
+ * Role: Verifies token_hash from signup/reset emails via verifyOtp, then
+ *       redirects to next (default /dashboard).
+ * Dependencies: lib/supabase/server.ts, @supabase/supabase-js (EmailOtpType)
+ * Used by: Supabase Auth redirect URL /auth/confirm
+ * Inputs: GET with token_hash, type, optional next
+ * Outputs: Redirect with session or error query param
+ * ========================================================================== */
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

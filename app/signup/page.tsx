@@ -13,7 +13,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { signupSchema, firstError } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 import { AuthShell } from "@/components/shell/auth-shell";

@@ -1,3 +1,10 @@
+/* =============================================================================
+ * next.config.ts — Next.js application configuration
+ * -----------------------------------------------------------------------------
+ * Role: Security headers, image remote patterns (Supabase), Sentry webpack wrap.
+ * Dependencies: @sentry/nextjs, NEXT_PUBLIC_SUPABASE_URL
+ * Used by: next build / next dev
+ * ========================================================================== */
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 

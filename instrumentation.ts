@@ -1,6 +1,11 @@
-// Server-side instrumentation entry point. Next.js calls register() once on
-// startup; we load the runtime-appropriate Sentry config. onRequestError
-// forwards uncaught Server Component / route errors to Sentry.
+/* =============================================================================
+ * instrumentation.ts — server-side observability bootstrap
+ * -----------------------------------------------------------------------------
+ * Role: Next.js calls register() on startup to load Sentry for nodejs/edge
+ *       runtimes. onRequestError forwards server errors to Sentry.
+ * Dependencies: @sentry/nextjs, sentry.server.config, sentry.edge.config
+ * Used by: Next.js instrumentation hook (production / when DSN set)
+ * ========================================================================== */
 import * as Sentry from "@sentry/nextjs";
 
 export async function register() {

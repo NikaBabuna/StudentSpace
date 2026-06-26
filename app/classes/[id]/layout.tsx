@@ -9,9 +9,9 @@ import Link from "next/link";
 
 import { getServerClient, requireAuth, getClassRow, getClassMembership } from "@/lib/auth";
 import { AppShell } from "@/components/shell/app-shell";
-import { PageContainer } from "@/components/shell/page";
+import { PageContainer } from "@/components/shell/page-container";
 import { Button } from "@/components/ui/button";
-import MembersButton from "./MembersButton";
+import MembersButton from "@/features/classes/components/MembersButton";
 
 export default async function ClassLayout({
   children,

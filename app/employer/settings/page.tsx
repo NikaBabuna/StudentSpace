@@ -1,33 +1,26 @@
-import { createClient } from "@/utils/supabase/server";
-import { redirect } from "next/navigation";
-import EmployerLayout from "../EmployerLayout";
-
-export default async function EmployerSettingsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("users").select("full_name, is_employer").eq("id", user.id).single();
-  if (!profile?.is_employer) redirect("/dashboard");
-
-  const fullName = profile.full_name ?? "";
-  const userInitials = fullName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
-
+/* =============================================================================
+ * app/employer/settings/page.tsx — employer settings placeholder
+ * -----------------------------------------------------------------------------
+ * Role: Static “coming soon” page inside employer portal.
+ * Dependencies: None
+ * Used by: Route /employer/settings
+ * Inputs/outputs: Placeholder UI only
+ * ========================================================================== */
+export default function EmployerSettingsPage() {
   return (
-    <EmployerLayout fullName={fullName} userInitials={userInitials} userId={user.id}>
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="px-6 py-4 shrink-0" style={{ borderBottom: "0.5px solid var(--color-ss-border)" }}>
-          <h1 className="text-[16px] font-medium" style={{ color: "var(--color-ss-text-primary)" }}>Settings</h1>
-          <p className="text-[11px] mt-0.5" style={{ color: "#5a5248" }}>Coming soon</p>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-[14px] font-medium mb-2" style={{ color: "#7a7060" }}>Not yet available</div>
-            <div className="text-[12px]" style={{ color: "#4a4438" }}>Organisation settings are coming in a future update.</div>
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="shrink-0 border-b border-line px-6 py-4">
+        <h1 className="text-base font-medium text-ink">Settings</h1>
+        <p className="mt-0.5 text-[11px] text-muted">Coming soon</p>
+      </div>
+      <div className="flex flex-1 items-center justify-center">
+        <div className="text-center">
+          <div className="mb-2 text-sm font-medium text-ink-2">Not yet available</div>
+          <div className="text-xs text-muted">
+            Organisation settings are coming in a future update.
           </div>
         </div>
       </div>
-    </EmployerLayout>
+    </div>
   );
 }

@@ -1,5 +1,10 @@
-// Sentry initialisation for the Edge runtime (middleware, edge routes).
-// Loaded by instrumentation.ts when NEXT_RUNTIME === "edge".
+/* =============================================================================
+ * sentry.edge.config.ts — Sentry for Edge runtime (proxy/middleware)
+ * -----------------------------------------------------------------------------
+ * Role: Sentry.init when code runs on the Edge (e.g. proxy.ts session refresh).
+ * Dependencies: @sentry/nextjs, NEXT_PUBLIC_SENTRY_DSN
+ * Used by: instrumentation.ts when NEXT_RUNTIME === "edge"
+ * ========================================================================== */
 import * as Sentry from "@sentry/nextjs";
 
 Sentry.init({

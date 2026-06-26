@@ -1,52 +1,65 @@
-import { createClient } from "@/utils/supabase/server";
+/* =============================================================================
+ * app/employer/students/[userId]/page.tsx — employer student detail route
+ * -----------------------------------------------------------------------------
+ * Role: Loads one student profile and shared classes; PersonDetailClient UI.
+ * Dependencies: lib/auth, PersonDetailClient
+ * Used by: Route /employer/students/[userId]
+ * Inputs: params.userId
+ * Outputs: Student detail with class list (employer read-only)
+ * ========================================================================== */
 import { redirect } from "next/navigation";
-import EmployerLayout from "../../EmployerLayout";
-import PersonDetailClient from "../../PersonDetailClient";
+import { getCurrentUser, getServerClient } from "@/lib/auth";
+import PersonDetailClient from "@/features/employer/components/PersonDetailClient";
 
-export default async function StudentDetailPage({ params }: { params: Promise<{ userId: string }> }) {
+export default async function StudentDetailPage({
+  params,
+}: {
+  params: Promise<{ userId: string }>;
+}) {
   const { userId } = await params;
-  const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("users").select("full_name, is_employer").eq("id", user.id).single();
-  if (!profile?.is_employer) redirect("/dashboard");
+  const supabase = await getServerClient();
 
   const { data: personProfile } = await supabase
-    .from("users").select("full_name, email").eq("id", userId).single();
+    .from("users")
+    .select("full_name, email")
+    .eq("id", userId)
+    .single();
 
   const { data: employerMemberships } = await supabase
     .from("class_members")
     .select(`class_id, classes (id, title, subject, level, cycle_hours, deleted_at)`)
-    .eq("user_id", user.id).eq("role", "employer");
+    .eq("user_id", user.id)
+    .eq("role", "employer");
 
   const employerClassIds = (employerMemberships ?? [])
     .filter((m) => m.classes && !m.classes.deleted_at)
     .map((m) => m.class_id);
 
   const { data: personMemberships } = await supabase
-    .from("class_members").select("class_id")
-    .eq("user_id", userId).eq("role", "student")
+    .from("class_members")
+    .select("class_id")
+    .eq("user_id", userId)
+    .eq("role", "student")
     .in("class_id", employerClassIds.length > 0 ? employerClassIds : ["00000000-0000-0000-0000-000000000000"]);
 
-  const sharedClassIds = (personMemberships ?? []).map(m => m.class_id);
+  const sharedClassIds = (personMemberships ?? []).map((m) => m.class_id);
   const sharedClasses = (employerMemberships ?? [])
     .filter((m) => sharedClassIds.includes(m.class_id) && m.classes && !m.classes.deleted_at)
     .map((m) => m.classes!);
 
-  const fullName = profile.full_name ?? "";
-  const userInitials = fullName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
-
   return (
-    <EmployerLayout fullName={fullName} userInitials={userInitials} userId={user.id}>
-      <PersonDetailClient
-        person={{ id: userId, full_name: personProfile?.full_name ?? "Unknown", email: personProfile?.email ?? "" }}
-        classes={sharedClasses}
-        role="student"
-        backHref="/employer"
-      />
-    </EmployerLayout>
+    <PersonDetailClient
+      person={{
+        id: userId,
+        full_name: personProfile?.full_name ?? "Unknown",
+        email: personProfile?.email ?? "",
+      }}
+      classes={sharedClasses}
+      role="student"
+      backHref="/employer"
+    />
   );
 }

@@ -1,12 +1,21 @@
+/* =============================================================================
+ * lib/storage.ts — Supabase Storage signed URL helpers
+ * -----------------------------------------------------------------------------
+ * Role: Turns stored file URLs into short-lived signed URLs for private
+ *       buckets (materials, homework-attachments). Parses bucket paths from
+ *       public/sign/authenticated URL shapes.
+ * Dependencies: @supabase/supabase-js, lib/database.types
+ * Used by: app route loaders before passing attachments to clients
+ * Inputs: Supabase client, bucket name, stored URL or Attachment[]
+ * Outputs: Signed URL(s), 8-hour TTL; falls back to original URL on failure
+ * ========================================================================== */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
 export const MATERIALS_BUCKET = "materials";
 export const HOMEWORK_BUCKET = "homework-attachments";
 
-// Signed URLs are valid for 8 hours and regenerated on every page load. Long
-// enough that a normal session never sees an expired link, short enough that a
-// leaked link doesn't stay usable indefinitely.
+// Signed URLs are valid for 8 hours and regenerated on every page load.
 const SIGNED_URL_TTL = 60 * 60 * 8;
 
 type DbClient = SupabaseClient<Database>;

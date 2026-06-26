@@ -1,6 +1,16 @@
-import { createClient } from "@/utils/supabase/server";
+/* =============================================================================
+ * app/classes/[id]/materials/page.tsx — class materials tab loader
+ * -----------------------------------------------------------------------------
+ * Role: Verifies membership, loads material_groups + materials, signs file
+ *       URLs, renders MaterialsClient.
+ * Dependencies: lib/supabase/server, lib/storage, MaterialsClient
+ * Used by: Route /classes/[id]/materials
+ * Inputs: params.id
+ * Outputs: MaterialsClient with groups and role
+ * ========================================================================== */
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import MaterialsClient from "./MaterialsClient";
+import MaterialsClient from "@/features/materials/components/MaterialsClient";
 import { signStoredUrl, MATERIALS_BUCKET } from "@/lib/storage";
 
 export default async function MaterialsPage({ params }: { params: Promise<{ id: string }> }) {

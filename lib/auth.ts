@@ -1,6 +1,18 @@
+/* =============================================================================
+ * lib/auth.ts — server-side auth guards and cached loaders
+ * -----------------------------------------------------------------------------
+ * Role: Centralises getUser(), membership, and class row checks for Server
+ *       Components and actions. Redirects on failure; returns verified data on
+ *       success. React.cache() dedupes reads within one request.
+ * Dependencies: lib/supabase/server.ts, lib/types (ClassRole)
+ * Used by: app route pages, app/classes/[id]/layout.tsx, some actions
+ * Inputs: classId, userId where applicable
+ * Outputs: User, membership row, class row; or redirect to /login
+ * Note: App-layer guards until RLS is fully verified in production.
+ * ========================================================================== */
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import type { ClassRole } from "@/lib/types";
 
 export type { ClassRole };
@@ -23,7 +35,7 @@ export type { ClassRole };
  *
  * NOTE: until RLS is enabled these are app-layer guards only. They protect
  * the rendered pages, not the database. The database-level equivalent is the
- * RLS work tracked in PRODUCTION-TASKS-BY-DIFFICULTY.md.
+ * RLS work tracked in docs/ROADMAP.md.
  */
 
 /** One Supabase server client per request (cookies read once, client reused). */

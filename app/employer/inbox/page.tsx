@@ -1,17 +1,21 @@
-import { createClient } from "@/utils/supabase/server";
+/* =============================================================================
+ * app/employer/inbox/page.tsx — employer inbox (shared InboxClient)
+ * -----------------------------------------------------------------------------
+ * Role: Same invite/request inbox as /inbox but inside employer layout shell.
+ * Dependencies: lib/auth, InboxClient
+ * Used by: Route /employer/inbox
+ * Inputs: Pending invites and parent_requests for user
+ * Outputs: InboxClient without main AppShell (employer layout wraps it)
+ * ========================================================================== */
 import { redirect } from "next/navigation";
-import EmployerLayout from "../EmployerLayout";
-import InboxClient from "@/app/inbox/InboxClient";
+import { getCurrentUser, getServerClient } from "@/lib/auth";
+import InboxClient from "@/features/inbox/components/InboxClient";
 
 export default async function EmployerInboxPage() {
-  const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("users").select("full_name, is_employer").eq("id", user.id).single();
-  if (!profile?.is_employer) redirect("/dashboard");
+  const supabase = await getServerClient();
 
   const { data: invites } = await supabase
     .from("invites")
@@ -23,12 +27,5 @@ export default async function EmployerInboxPage() {
     .eq("invited_user_id", user.id)
     .order("created_at", { ascending: false });
 
-  const fullName = profile.full_name ?? "";
-  const userInitials = fullName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
-
-  return (
-    <EmployerLayout fullName={fullName} userInitials={userInitials} userId={user.id}>
-      <InboxClient invites={invites ?? []} parentRequests={[]} />
-    </EmployerLayout>
-  );
+  return <InboxClient invites={invites ?? []} parentRequests={[]} />;
 }

@@ -105,6 +105,9 @@
  * ========================================================================== */
 :root,
 [data-theme="dark"] {
+  /* Render native controls (selects, date/time pickers, scrollbars) in dark UI. */
+  color-scheme: dark;
+
   --bg:        oklch(0.175 0.012 265);
   --surface:   oklch(0.222 0.015 265);
   --surface-2: oklch(0.255 0.015 265);
@@ -166,6 +169,8 @@
  * every utility/alias above re-resolves automatically.
  * ========================================================================== */
 [data-theme="light"] {
+  color-scheme: light;
+
   --bg:        #f3f1eb;
   --surface:   #ffffff;
   --surface-2: #faf8f3;
@@ -267,6 +272,14 @@
   input::placeholder,
   textarea::placeholder {
     color: var(--muted);
+  }
+
+  /* Native date/time picker indicator stays clickable; theme matching is handled
+   * by `color-scheme` on the theme roots below. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.75;
   }
 
   /* Custom scrollbars that blend with the surface. */

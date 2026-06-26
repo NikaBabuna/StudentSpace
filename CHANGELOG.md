@@ -1,5 +1,33 @@
 # Changelog
 
+## Features module refactor
+
+### Summary
+
+Moved domain UI and server actions out of `app/` into `features/`, leaving routes as thin server pages (`page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`). Supabase clients consolidated under `lib/supabase/` (removed `utils/supabase/`).
+
+### Server actions (current locations)
+
+| File | Actions |
+|------|---------|
+| `features/classes/actions/create-class.ts` | `createClassPipeline`, `lookupInviteEmail` |
+| `features/classes/actions/members.ts` | `removeMember` (tutor-only) |
+| `features/classes/actions/invite.ts` | `sendInvite` (tutor-only; target + role re-derived server-side) |
+| `features/schedule/actions.ts` | `completeLesson`, `missLesson`, `cancelLesson`, `deleteLesson`, `scheduleLesson`, `markCyclePaid`, recurring-slot helpers |
+| `features/homework/actions.ts` | `createHomework`, `updateHomework`, `deleteHomework`, `submitHomework` |
+| `features/homework/submissions-actions.ts` | `gradeSubmission` (tutor-only) |
+| `features/materials/actions.ts` | `createMaterialGroup`, `insertMaterials`, `renameMaterialGroup`, `deleteMaterial`, `deleteMaterialGroup`, `toggleMaterialPin` |
+| `features/chat/actions.ts` | `postMessage` (membership checked) |
+| `features/inbox/actions.ts` | `respondInvite`, `respondParentRequest` |
+| `features/dashboard/actions.ts` | `updateClass`, `deleteClass` (creator-only) |
+| `features/settings/actions.ts` | `sendParentRequest`, `removeChild`, `removeParent` |
+
+### Removed legacy duplicates
+
+Pre-refactor copies under `app/**` (`*Client.tsx`, colocated `actions.ts`, `utils/supabase/`, unused `class-tabs.tsx` / `toast.tsx`, design decode artifacts).
+
+---
+
 ## Server actions migration + error/loading UI (branch `feat/server-actions-mutations`)
 
 ### Summary
@@ -13,22 +41,6 @@ membership) are enforced on the server where they can't be tampered with.
 
 File **uploads to Supabase Storage stay client-side**; only the database row writes
 moved to actions (matching the existing `submitHomework` pattern).
-
-### Server actions added
-
-| File | Actions |
-|------|---------|
-| `app/classes/new/actions.ts` | `createClass` (class + first payment cycle, in one place) |
-| `app/classes/[id]/actions.ts` | `removeMember` (tutor-only) |
-| `app/classes/[id]/schedule/actions.ts` | `completeLesson`, `missLesson`, `cancelLesson`, `deleteLesson`, `scheduleLesson`, `markCyclePaid` |
-| `app/classes/[id]/homework/actions.ts` | `createHomework`, `updateHomework`, `deleteHomework` (plus existing `submitHomework`) |
-| `app/classes/[id]/homework/[hwId]/actions.ts` | `gradeSubmission` (tutor-only) |
-| `app/classes/[id]/materials/actions.ts` | `createMaterialGroup`, `insertMaterials`, `renameMaterialGroup`, `deleteMaterial`, `deleteMaterialGroup`, `toggleMaterialPin` |
-| `app/classes/[id]/chat/actions.ts` | `postMessage` (membership checked) |
-| `app/classes/[id]/invite/actions.ts` | `sendInvite` (tutor-only; target + role re-derived server-side) |
-| `app/inbox/actions.ts` | `respondInvite`, `respondParentRequest` (ownership verified; role/parent taken from the row, not the client) |
-| `app/dashboard/actions.ts` | `updateClass`, `deleteClass` (creator-only) |
-| `app/settings/access/actions.ts` | `sendParentRequest`, `removeChild`, `removeParent` |
 
 ### Key behaviour improvements
 
@@ -44,8 +56,8 @@ moved to actions (matching the existing `submitHomework` pattern).
 ### Components rewired (no more direct DB writes)
 
 `ScheduleClient`, `HomeworkClient`, `SubmissionsClient`, `MaterialsClient`,
-`InboxClient`, `DashboardClient`, `AccessClient`, `InviteClient`, `MembersButton`,
-`chat/page.tsx`, `classes/new/page.tsx`.
+`InboxClient`, `DashboardHomeClient`, `AccessClient`, `InviteClient`, `MembersButton`,
+`ChatPage`, `NewClassForm` — now under `features/*/components/`.
 
 ### Error & loading UI
 

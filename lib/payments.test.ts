@@ -1,3 +1,10 @@
+/* =============================================================================
+ * lib/payments.test.ts — unit tests for lib/payments.ts
+ * -----------------------------------------------------------------------------
+ * Role: Verifies sumCompletedHours() and computeCycleClose() (A2 rollover).
+ * Dependencies: vitest, lib/payments
+ * Used by: npm test / CI
+ * ========================================================================== */
 import { describe, it, expect } from "vitest";
 import { sumCompletedHours, computeCycleClose } from "./payments";
 

@@ -1,6 +1,14 @@
-// Zod schemas for form input. Used client-side to give immediate feedback and
-// (where adopted) server-side in Server Actions so the same rules can't be
-// bypassed. `firstError` is a small helper to surface one message in the UI.
+/* =============================================================================
+ * lib/validation.ts — Zod schemas for forms and server actions
+ * -----------------------------------------------------------------------------
+ * Role: Single source of validation rules for signup, class create, homework,
+ *       and lessons. Used client-side for instant feedback and server-side
+ *       so rules cannot be bypassed.
+ * Dependencies: zod
+ * Used by: Login/signup forms, NewClassForm, homework/schedule actions
+ * Exports: signupSchema, classCreateSchema, homeworkSchema, lessonSchema,
+ *          firstError(ZodError) → first message string
+ * ========================================================================== */
 import { z } from "zod";
 
 export const signupSchema = z.object({

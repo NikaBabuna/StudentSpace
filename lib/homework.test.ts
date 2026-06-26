@@ -1,3 +1,10 @@
+/* =============================================================================
+ * lib/homework.test.ts — unit tests for lib/homework.ts
+ * -----------------------------------------------------------------------------
+ * Role: Verifies deadlineStatus() and canSubmit() edge cases with fixed dates.
+ * Dependencies: vitest, lib/homework
+ * Used by: npm test / CI
+ * ========================================================================== */
 import { describe, it, expect } from "vitest";
 import { deadlineStatus, canSubmit } from "./homework";
 

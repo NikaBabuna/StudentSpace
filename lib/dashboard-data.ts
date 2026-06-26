@@ -1,3 +1,14 @@
+/* =============================================================================
+ * lib/dashboard-data.ts — dashboard home page data loader
+ * -----------------------------------------------------------------------------
+ * Role: Batches all Supabase queries needed for /dashboard: user profile,
+ *       class list with counts, today’s sessions, homework needing attention,
+ *       and stat cards. Redirects employers to /employer.
+ * Dependencies: lib/auth, lib/dashboard-stats, next/navigation
+ * Used by: app/dashboard/page.tsx
+ * Inputs: None (reads current session)
+ * Outputs: loadDashboardData() → greeting, stats, classes, sessions, headings
+ * ========================================================================== */
 import { buildDashboardStats, greetingForHour, type DashboardStat } from "@/lib/dashboard-stats";
 import { getServerClient, getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";

@@ -21,7 +21,7 @@ jobs:
 
       # Lint is currently informational: the codebase has a backlog of
       # `no-explicit-any` errors (tracked as "Eliminate any types" in
-      # PRODUCTION-TASKS-BY-DIFFICULTY.md). Flip continue-on-error to false
+      # docs/ROADMAP.md). Flip continue-on-error to false
       # once that cleanup lands to make lint a hard gate.
       - name: Lint
         run: npm run lint

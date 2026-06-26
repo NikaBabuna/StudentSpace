@@ -1,3 +1,14 @@
+/* =============================================================================
+ * app/classes/[id]/overview/page.tsx — class overview tab (server-rendered)
+ * -----------------------------------------------------------------------------
+ * Role: Role-aware summary for one class: stats, next lesson, payment cycle,
+ *       homework attention (tutor) or active homework (student). Heavy server
+ *       component with batched Supabase reads — no separate client wrapper.
+ * Dependencies: lib/auth, components/ui (StatCard, Badge, etc.)
+ * Used by: Route /classes/[id]/overview (default class tab)
+ * Inputs: params.id, membership from cached loaders
+ * Outputs: Full overview HTML inside class layout
+ * ========================================================================== */
 import Link from "next/link";
 
 import { getServerClient, requireAuth, getClassMembership, getClassRow } from "@/lib/auth";

@@ -1,3 +1,13 @@
+/* =============================================================================
+ * lib/dashboard-stats.ts — dashboard metric builders (pure helpers)
+ * -----------------------------------------------------------------------------
+ * Role: Turns raw lesson/submission rows into stat cards and time-of-day
+ *       greeting text. No I/O — easy to reason about and test in isolation.
+ * Dependencies: None
+ * Used by: lib/dashboard-data.ts, features/dashboard AnalyticsClient (types)
+ * Inputs: Class IDs, lesson rows, submission rows, student user IDs
+ * Outputs: DashboardStat[], greetingForHour(firstName)
+ * ========================================================================== */
 export type DashboardStat = {
   label: string;
   value: string | number;
