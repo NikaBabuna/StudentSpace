@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
+import { removeMember } from "./actions";
 
 const roleColors: Record<string, { bg: string; color: string; border: string }> = {
   tutor:    { bg: "#2a2318", color: "#c8a050", border: "#4a3a18" },
@@ -17,7 +17,6 @@ export default function MembersButton({ classId, members, currentUserId }: {
   members: { id: string; full_name: string; role: string }[];
   currentUserId: string;
 }) {
-  const supabase = createClient();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
@@ -25,12 +24,10 @@ export default function MembersButton({ classId, members, currentUserId }: {
 
   async function handleRemove(userId: string) {
     setRemoving(userId);
-    await supabase.from("class_members")
-      .delete()
-      .eq("class_id", classId)
-      .eq("user_id", userId);
+    const { error } = await removeMember(classId, userId);
     setRemoving(null);
     setConfirmId(null);
+    if (error) return;
     router.refresh();
   }
 

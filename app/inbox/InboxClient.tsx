@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
-import type { ClassRole } from "@/lib/types";
+import { respondInvite, respondParentRequest } from "./actions";
 
 const roleColors: Record<string, { bg: string; color: string; border: string }> = {
   student:  { bg: "#2a1e10", color: "#e8a060", border: "#5a3a1a" },
@@ -36,7 +35,6 @@ export default function InboxClient({
   parentRequests: any[];
   userId: string;
 }) {
-  const supabase = createClient();
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -47,39 +45,19 @@ export default function InboxClient({
 
   const totalPending = pendingInvites.length + pendingParentReqs.length;
 
-  async function respondInvite(inviteId: string, classId: string, role: ClassRole, accept: boolean) {
+  async function handleInvite(inviteId: string, accept: boolean) {
     setLoading(inviteId);
-
-    if (accept) {
-      const { error } = await supabase.from("class_members").insert({
-        class_id: classId, user_id: userId, role,
-      });
-      if (error) {
-        setLoading(null);
-        return;
-      }
-    }
-
-    await supabase.from("invites").update({
-      status: accept ? "accepted" : "declined",
-    }).eq("id", inviteId);
-
+    const { error } = await respondInvite(inviteId, accept);
     setLoading(null);
+    if (error) return;
     router.refresh();
   }
 
-  async function respondParentRequest(reqId: string, parentId: string, accept: boolean) {
+  async function handleParentRequest(reqId: string, accept: boolean) {
     setLoading(reqId);
-    await supabase.from("parent_requests").update({
-      status: accept ? "accepted" : "declined",
-    }).eq("id", reqId);
-
-    if (accept) {
-      await supabase.from("parent_students").insert({
-        parent_id: parentId, student_id: userId,
-      });
-    }
+    const { error } = await respondParentRequest(reqId, accept);
     setLoading(null);
+    if (error) return;
     router.refresh();
   }
 
@@ -133,14 +111,14 @@ export default function InboxClient({
                       </div>
                       <div className="flex gap-2 shrink-0">
                         <button
-                          onClick={() => respondInvite(invite.id, cls?.id, invite.role, false)}
+                          onClick={() => handleInvite(invite.id, false)}
                           disabled={loading === invite.id}
                           className="text-[12px] px-3 py-1.5 rounded-md"
                           style={{ color: "var(--color-ss-red)", background: "var(--color-ss-red-bg)", border: "0.5px solid var(--color-ss-red-border)", opacity: loading === invite.id ? 0.6 : 1, cursor: "pointer" }}>
                           Decline
                         </button>
                         <button
-                          onClick={() => respondInvite(invite.id, cls?.id, invite.role, true)}
+                          onClick={() => handleInvite(invite.id, true)}
                           disabled={loading === invite.id}
                           className="text-[12px] font-medium px-3 py-1.5 rounded-md"
                           style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", opacity: loading === invite.id ? 0.6 : 1, cursor: "pointer" }}>
@@ -174,14 +152,14 @@ export default function InboxClient({
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <button
-                        onClick={() => respondParentRequest(req.id, req.parent?.id, false)}
+                        onClick={() => handleParentRequest(req.id, false)}
                         disabled={loading === req.id}
                         className="text-[12px] px-3 py-1.5 rounded-md"
                         style={{ color: "var(--color-ss-red)", background: "var(--color-ss-red-bg)", border: "0.5px solid var(--color-ss-red-border)", opacity: loading === req.id ? 0.6 : 1, cursor: "pointer" }}>
                         Decline
                       </button>
                       <button
-                        onClick={() => respondParentRequest(req.id, req.parent?.id, true)}
+                        onClick={() => handleParentRequest(req.id, true)}
                         disabled={loading === req.id}
                         className="text-[12px] font-medium px-3 py-1.5 rounded-md"
                         style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", opacity: loading === req.id ? 0.6 : 1, cursor: "pointer" }}>

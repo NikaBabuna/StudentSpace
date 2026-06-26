@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import { updateClass, deleteClass } from "./actions";
 
 function LangToggle() {
   const [lang, setLang] = useState<"EN" | "GE">("EN");
@@ -29,7 +29,6 @@ function LangToggle() {
 // ─── Edit modal ───────────────────────────────────────────────────────────────
 
 function EditClassModal({ cls, onClose }: { cls: any; onClose: () => void }) {
-  const supabase = createClient();
   const router = useRouter();
 
   const [title, setTitle] = useState(cls.title ?? "");
@@ -54,38 +53,30 @@ function EditClassModal({ cls, onClose }: { cls: any; onClose: () => void }) {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true); setError(null);
-    const { error: dbErr } = await supabase.from("classes").update({
-      title: title.trim(),
-      subject: subject.trim() || null,
-      level: level.trim() || null,
-      description: description.trim() || null,
-      tutor_notes: tutorNotes.trim() || null,
-      cycle_hours: parseInt(cycleHours) || cls.cycle_hours,
-    }).eq("id", cls.id);
-
-    if (!dbErr && paymentAmount) {
-      // Update open cycle payment info
-      await supabase.from("payment_cycles").update({
-        payment_amount: parseFloat(paymentAmount) || null,
-        payment_currency: paymentCurrency,
-      }).eq("class_id", cls.id).is("closed_at", null);
-    }
+    const { error: dbErr } = await updateClass({
+      classId: cls.id,
+      title,
+      subject,
+      level,
+      description,
+      tutorNotes,
+      cycleHours: parseInt(cycleHours) || cls.cycle_hours,
+      paymentAmount: paymentAmount ? parseFloat(paymentAmount) : null,
+      paymentCurrency,
+    });
 
     setSaving(false);
-    if (dbErr) { setError(dbErr.message); return; }
+    if (dbErr) { setError(dbErr); return; }
     onClose();
     router.refresh();
   }
 
   async function handleDelete() {
     setDeleting(true);
-    await supabase.from("lessons").update({ deleted_at: new Date().toISOString() }).eq("class_id", cls.id);
-    await supabase.from("homework").update({ deleted_at: new Date().toISOString() }).eq("class_id", cls.id);
-    await supabase.from("materials").update({ deleted_at: new Date().toISOString() }).eq("class_id", cls.id);
-    await supabase.from("material_groups").update({ deleted_at: new Date().toISOString() }).eq("class_id", cls.id);
-    await supabase.from("class_members").delete().eq("class_id", cls.id);
-    await supabase.from("classes").update({ deleted_at: new Date().toISOString() } as any).eq("id", cls.id);
+    const { error } = await deleteClass(cls.id);
+    if (error) { setDeleting(false); setError(error); return; }
     router.push("/dashboard");
+    router.refresh();
   }
 
   return (

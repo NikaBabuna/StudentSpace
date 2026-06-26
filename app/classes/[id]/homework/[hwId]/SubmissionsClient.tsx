@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Attachment } from "@/lib/types";
+import { gradeSubmission } from "./actions";
 
 interface Submission {
   id: string;
@@ -28,12 +28,12 @@ export default function SubmissionsClient({
   submissions: Submission[];
   tutorId: string;
 }) {
-  const supabase = createClient();
   const router = useRouter();
 
   const [gradingId, setGradingId] = useState<string | null>(null);
   const [gradeText, setGradeText] = useState("");
   const [gradeLoading, setGradeLoading] = useState(false);
+  const [gradeError, setGradeError] = useState<string | null>(null);
 
   const deadline = new Date(hw.deadline);
   const isPast = new Date() > deadline;
@@ -48,8 +48,10 @@ const notSubmitted = studentUsers.filter(u => !submittedIds.includes(u.id));
 
   async function handleGrade(subId: string) {
     setGradeLoading(true);
-    await supabase.from("submissions").update({ grade: gradeText }).eq("id", subId);
+    setGradeError(null);
+    const { error } = await gradeSubmission(subId, gradeText, classId);
     setGradeLoading(false);
+    if (error) { setGradeError(error); return; }
     setGradingId(null);
     setGradeText("");
     router.refresh();
@@ -206,6 +208,9 @@ const notSubmitted = studentUsers.filter(u => !submittedIds.includes(u.id));
                         {gradeLoading ? "Saving…" : "Save"}
                       </button>
                     </div>
+                    {gradeError && isGrading && (
+                      <div className="text-[11px]" style={{ color: "var(--color-ss-red)" }}>{gradeError}</div>
+                    )}
                   </div>
                 ) : (
                   <div>

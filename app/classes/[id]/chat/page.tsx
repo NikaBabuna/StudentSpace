@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, use } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { postMessage } from "./actions";
 
 type Role = "tutor" | "student" | "parent" | "employer";
 
@@ -136,14 +137,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     if (!text) return;
     setInput("");
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    await supabase.from("messages").insert({
-      class_id: classId,
-      author_id: user.id,
-      body: text,
-    });
+    const { error } = await postMessage(classId, text);
+    if (error) setInput(text); // restore on failure so the user can retry
   }
 
   function handleKey(e: React.KeyboardEvent) {
