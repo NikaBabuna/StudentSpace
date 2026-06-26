@@ -12,6 +12,7 @@ const DELTA_TONE = {
   up: "text-ok",
   down: "text-danger",
   accent: "text-accent",
+  warn: "text-warn",
   muted: "text-muted",
 } as const;
 

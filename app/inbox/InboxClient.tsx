@@ -2,48 +2,87 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { respondInvite, respondParentRequest } from "./actions";
 
-const roleColors: Record<string, { bg: string; color: string; border: string }> = {
-  student:  { bg: "#2a1e10", color: "#e8a060", border: "#5a3a1a" },
-  parent:   { bg: "#10203a", color: "#60a8e8", border: "#1a3a6a" },
-  tutor:    { bg: "#2a2318", color: "#c8a050", border: "#4a3a18" },
-  employer: { bg: "#1a2a10", color: "#80c060", border: "#2a4a1a" },
+import { respondInvite, respondParentRequest } from "./actions";
+import { PageContainer, PageHeader } from "@/components/shell/page";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { InboxIcon } from "@/components/icons";
+
+const ROLE_TONE: Record<string, "accent" | "ok" | "warn" | "neutral"> = {
+  tutor: "accent",
+  student: "ok",
+  parent: "warn",
+  employer: "neutral",
 };
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+type ClassInfo = {
+  id: string;
+  title: string;
+  subject?: string | null;
+  level?: string | null;
+};
+
+type Invite = {
+  id: string;
+  role: string;
+  status: string;
+  classes: ClassInfo | null;
+  invited_by_user: { full_name: string } | null;
+};
+
+type ParentRequest = {
+  id: string;
+  status: string;
+  parent: { id: string; full_name: string } | null;
+};
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[10px] uppercase tracking-wider mb-3" style={{ color: "#4a4438" }}>
-      {children}
-    </div>
+    <h2 className="mb-3 font-mono text-[12px] uppercase tracking-[0.06em] text-muted">{children}</h2>
   );
 }
 
-function EmptyState({ message }: { message: string }) {
+function PastRow({
+  title,
+  detail,
+  accepted,
+}: {
+  title: string;
+  detail?: string;
+  accepted: boolean;
+}) {
   return (
-    <div className="rounded-xl py-8 text-center text-[13px]"
-      style={{ background: "#17150f", border: "0.5px solid #2a2820", color: "#4a4438" }}>
-      {message}
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-line bg-surface-2 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <span className="text-[13px] font-medium text-ink">{title}</span>
+        {detail ? <span className="ml-2 text-[12px] text-muted">{detail}</span> : null}
+      </div>
+      <Badge tone={accepted ? "ok" : "danger"}>{accepted ? "Accepted" : "Declined"}</Badge>
     </div>
   );
 }
 
 export default function InboxClient({
-  invites, parentRequests, userId,
+  invites,
+  parentRequests,
 }: {
-  invites: any[];
-  parentRequests: any[];
-  userId: string;
+  invites: Invite[];
+  parentRequests: ParentRequest[];
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
 
-  const pendingInvites = invites.filter(i => i.status === "pending");
-  const pastInvites = invites.filter(i => i.status !== "pending");
-  const pendingParentReqs = parentRequests.filter(r => r.status === "pending");
-  const pastParentReqs = parentRequests.filter(r => r.status !== "pending");
+  const pendingInvites = invites.filter((i) => i.status === "pending");
+  const pastInvites = invites.filter((i) => i.status !== "pending");
+  const pendingParentReqs = parentRequests.filter((r) => r.status === "pending");
+  const pastParentReqs = parentRequests.filter((r) => r.status !== "pending");
 
   const totalPending = pendingInvites.length + pendingParentReqs.length;
+  const isEmpty =
+    totalPending === 0 && pastInvites.length === 0 && pastParentReqs.length === 0;
 
   async function handleInvite(inviteId: string, accept: boolean) {
     setLoading(inviteId);
@@ -62,180 +101,143 @@ export default function InboxClient({
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <PageContainer>
+      <PageHeader
+        title="Inbox"
+        sub={totalPending > 0 ? `${totalPending} pending` : "Nothing pending"}
+      />
 
-      {/* Header */}
-      <div className="px-6 py-4 shrink-0 flex items-center justify-between"
-        style={{ borderBottom: "0.5px solid var(--color-ss-border)" }}>
-        <div>
-          <h1 className="text-[16px] font-medium" style={{ color: "var(--color-ss-text-primary)" }}>Inbox</h1>
-          <p className="text-[11px] mt-0.5" style={{ color: "#5a5248" }}>
-            {totalPending > 0 ? `${totalPending} pending` : "Nothing pending"}
-          </p>
-        </div>
-      </div>
+      {isEmpty ? (
+        <EmptyState
+          icon={<InboxIcon size={20} />}
+          title="Nothing here yet"
+          description="Invites and parent link requests will appear here."
+        />
+      ) : (
+        <div className="flex max-w-2xl flex-col gap-8">
+          {pendingInvites.length > 0 ? (
+            <section>
+              <SectionHeading>Class invites</SectionHeading>
+              <div className="flex flex-col gap-2.5">
+                {pendingInvites.map((invite) => {
+                  const cls = invite.classes;
+                  const invitedBy = invite.invited_by_user?.full_name ?? "Someone";
+                  const meta = [cls?.subject, cls?.level].filter(Boolean).join(" · ");
+                  const roleTone = ROLE_TONE[invite.role] ?? "neutral";
 
-      <div className="flex-1 overflow-auto p-6 flex flex-col gap-6 max-w-2xl">
-
-        {/* Pending class invites */}
-        {pendingInvites.length > 0 && (
-          <div>
-            <SectionLabel>Class invites</SectionLabel>
-            <div className="flex flex-col gap-2.5">
-              {pendingInvites.map(invite => {
-                const colors = roleColors[invite.role] ?? roleColors.student;
-                const cls = invite.classes;
-                const invitedBy = invite.invited_by_user?.full_name ?? "Someone";
-                return (
-                  <div key={invite.id} className="rounded-xl p-4"
-                    style={{ background: "#201e18", border: "0.5px solid #3a3630" }}>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-[14px] font-medium" style={{ color: "#d8c8a0" }}>
-                            {cls?.title ?? "Unknown class"}
-                          </span>
-                          <span className="text-[10px] font-medium px-2 py-0.5 rounded"
-                            style={{ background: colors.bg, color: colors.color, border: `0.5px solid ${colors.border}` }}>
-                            {invite.role}
-                          </span>
-                        </div>
-                        {(cls?.subject || cls?.level) && (
-                          <div className="text-[11px] mb-1" style={{ color: "#6a6050" }}>
-                            {[cls.subject, cls.level].filter(Boolean).join(" · ")}
+                  return (
+                    <Card key={invite.id}>
+                      <CardContent className="flex items-center gap-3 py-4">
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex flex-wrap items-center gap-2">
+                            <span className="text-[14px] font-semibold text-ink">
+                              {cls?.title ?? "Unknown class"}
+                            </span>
+                            <Badge tone={roleTone} className="capitalize">
+                              {invite.role}
+                            </Badge>
                           </div>
-                        )}
-                        <div className="text-[11px]" style={{ color: "#4a4438" }}>
-                          Invited by {invitedBy}
+                          {meta ? <div className="mb-1 text-[12px] text-ink-2">{meta}</div> : null}
+                          <div className="text-[12px] text-muted">Invited by {invitedBy}</div>
                         </div>
+                        <div className="flex shrink-0 gap-2">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            disabled={loading === invite.id}
+                            onClick={() => handleInvite(invite.id, false)}
+                          >
+                            Decline
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            busy={loading === invite.id}
+                            onClick={() => handleInvite(invite.id, true)}
+                          >
+                            Accept
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          {pendingParentReqs.length > 0 ? (
+            <section>
+              <SectionHeading>Parent link requests</SectionHeading>
+              <div className="flex flex-col gap-2.5">
+                {pendingParentReqs.map((req) => (
+                  <Card key={req.id}>
+                    <CardContent className="flex items-center gap-3 py-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 text-[14px] font-semibold text-ink">
+                          {req.parent?.full_name ?? "Someone"}
+                        </div>
+                        <div className="text-[12px] text-muted">wants to link as your parent</div>
                       </div>
-                      <div className="flex gap-2 shrink-0">
-                        <button
-                          onClick={() => handleInvite(invite.id, false)}
-                          disabled={loading === invite.id}
-                          className="text-[12px] px-3 py-1.5 rounded-md"
-                          style={{ color: "var(--color-ss-red)", background: "var(--color-ss-red-bg)", border: "0.5px solid var(--color-ss-red-border)", opacity: loading === invite.id ? 0.6 : 1, cursor: "pointer" }}>
+                      <div className="flex shrink-0 gap-2">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          disabled={loading === req.id}
+                          onClick={() => handleParentRequest(req.id, false)}
+                        >
                           Decline
-                        </button>
-                        <button
-                          onClick={() => handleInvite(invite.id, true)}
-                          disabled={loading === invite.id}
-                          className="text-[12px] font-medium px-3 py-1.5 rounded-md"
-                          style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", opacity: loading === invite.id ? 0.6 : 1, cursor: "pointer" }}>
-                          {loading === invite.id ? "…" : "Accept"}
-                        </button>
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          busy={loading === req.id}
+                          onClick={() => handleParentRequest(req.id, true)}
+                        >
+                          Accept
+                        </Button>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-        {/* Pending parent requests */}
-        {pendingParentReqs.length > 0 && (
-          <div>
-            <SectionLabel>Parent link requests</SectionLabel>
-            <div className="flex flex-col gap-2.5">
-              {pendingParentReqs.map(req => (
-                <div key={req.id} className="rounded-xl p-4"
-                  style={{ background: "#201e18", border: "0.5px solid #3a3630" }}>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[14px] font-medium mb-1" style={{ color: "#d8c8a0" }}>
-                        {req.parent?.full_name ?? "Someone"}
-                      </div>
-                      <div className="text-[11px]" style={{ color: "#4a4438" }}>
-                        wants to link as your parent
-                      </div>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => handleParentRequest(req.id, false)}
-                        disabled={loading === req.id}
-                        className="text-[12px] px-3 py-1.5 rounded-md"
-                        style={{ color: "var(--color-ss-red)", background: "var(--color-ss-red-bg)", border: "0.5px solid var(--color-ss-red-border)", opacity: loading === req.id ? 0.6 : 1, cursor: "pointer" }}>
-                        Decline
-                      </button>
-                      <button
-                        onClick={() => handleParentRequest(req.id, true)}
-                        disabled={loading === req.id}
-                        className="text-[12px] font-medium px-3 py-1.5 rounded-md"
-                        style={{ background: "var(--color-ss-amber-light)", color: "#1c1a17", opacity: loading === req.id ? 0.6 : 1, cursor: "pointer" }}>
-                        {loading === req.id ? "…" : "Accept"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+          {pastInvites.length > 0 ? (
+            <section>
+              <SectionHeading>Past invites</SectionHeading>
+              <div className="flex flex-col gap-2">
+                {pastInvites.map((invite) => (
+                  <PastRow
+                    key={invite.id}
+                    title={invite.classes?.title ?? "Unknown class"}
+                    detail={`as ${invite.role}`}
+                    accepted={invite.status === "accepted"}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-        {/* Empty state */}
-        {totalPending === 0 && pastInvites.length === 0 && pastParentReqs.length === 0 && (
-          <EmptyState message="Nothing here yet — invites and parent link requests will appear here." />
-        )}
-
-        {/* Past invites */}
-        {pastInvites.length > 0 && (
-          <div>
-            <SectionLabel>Past invites</SectionLabel>
-            <div className="flex flex-col gap-2">
-              {pastInvites.map(invite => {
-                const accepted = invite.status === "accepted";
-                const cls = invite.classes;
-                return (
-                  <div key={invite.id} className="rounded-xl px-4 py-3 flex items-center justify-between gap-4"
-                    style={{ background: "#17150f", border: "0.5px solid #2a2820" }}>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[12px]" style={{ color: "#c8b890" }}>
-                        {cls?.title ?? "Unknown class"}
-                      </span>
-                      <span className="text-[11px] ml-2" style={{ color: "#4a4438" }}>
-                        as {invite.role}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded shrink-0"
-                      style={accepted
-                        ? { background: "#10201a", color: "#40a870", border: "0.5px solid #1a4030" }
-                        : { background: "#1e0e0e", color: "#a03030", border: "0.5px solid #3a1010" }}>
-                      {accepted ? "Accepted" : "Declined"}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Past parent requests */}
-        {pastParentReqs.length > 0 && (
-          <div>
-            <SectionLabel>Past parent requests</SectionLabel>
-            <div className="flex flex-col gap-2">
-              {pastParentReqs.map(req => {
-                const accepted = req.status === "accepted";
-                return (
-                  <div key={req.id} className="rounded-xl px-4 py-3 flex items-center justify-between gap-4"
-                    style={{ background: "#17150f", border: "0.5px solid #2a2820" }}>
-                    <span className="text-[12px]" style={{ color: "#c8b890" }}>
-                      {req.parent?.full_name ?? "Someone"} — parent link
-                    </span>
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded shrink-0"
-                      style={accepted
-                        ? { background: "#10201a", color: "#40a870", border: "0.5px solid #1a4030" }
-                        : { background: "#1e0e0e", color: "#a03030", border: "0.5px solid #3a1010" }}>
-                      {accepted ? "Accepted" : "Declined"}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+          {pastParentReqs.length > 0 ? (
+            <section>
+              <SectionHeading>Past parent requests</SectionHeading>
+              <div className="flex flex-col gap-2">
+                {pastParentReqs.map((req) => (
+                  <PastRow
+                    key={req.id}
+                    title={`${req.parent?.full_name ?? "Someone"} — parent link`}
+                    accepted={req.status === "accepted"}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
+      )}
+    </PageContainer>
   );
 }

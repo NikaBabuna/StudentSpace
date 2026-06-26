@@ -45,6 +45,8 @@ type NavItem = {
   href: string;
   icon: (p: IconProps) => React.ReactNode;
   badge?: number;
+  /** When true, only an exact pathname match counts as active. */
+  exact?: boolean;
 };
 
 export interface SidebarProps {
@@ -70,7 +72,8 @@ export interface SidebarProps {
 }
 
 const dashboardNav: NavItem[] = [
-  { label: "My classes", href: "/dashboard", icon: DashboardIcon },
+  { label: "Dashboard", href: "/dashboard", icon: DashboardIcon, exact: true },
+  { label: "My classes", href: "/dashboard/classes", icon: ClassesIcon },
   { label: "Analytics", href: "/dashboard/analytics", icon: AnalyticsIcon },
   { label: "Inbox", href: "/inbox", icon: InboxIcon },
 ];
@@ -151,7 +154,7 @@ export function Sidebar({
         ) : student ? (
           <>
             <Link
-              href="/dashboard"
+              href="/dashboard/classes"
               className="flex items-center gap-1.5 px-2 text-[12px] text-muted transition-colors hover:text-ink-2"
             >
               <ChevronLeftIcon size={14} /> All classes
@@ -238,7 +241,9 @@ export function Sidebar({
 
 /** A single nav row: icon + label + optional count badge, with active styling. */
 function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
-  const active = pathname === item.href || pathname.startsWith(item.href + "/");
+  const active = item.exact
+    ? pathname === item.href
+    : pathname === item.href || pathname.startsWith(item.href + "/");
   const Icon = item.icon;
   return (
     <Link

@@ -28,11 +28,7 @@ export default async function EmployerInboxPage() {
 
   return (
     <EmployerLayout fullName={fullName} userInitials={userInitials} userId={user.id}>
-      <InboxClient
-        invites={invites ?? []}
-        parentRequests={[]}
-        userId={user.id}
-      />
+      <InboxClient invites={invites ?? []} parentRequests={[]} />
     </EmployerLayout>
   );
 }

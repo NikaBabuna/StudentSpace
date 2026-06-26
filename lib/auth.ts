@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import type { ClassRole } from "@/lib/types";
@@ -5,7 +6,7 @@ import type { ClassRole } from "@/lib/types";
 export type { ClassRole };
 
 /**
- * Shared server-side auth guards.
+ * Shared server-side auth guards + request-scoped data loaders.
  *
  * These centralise the `getUser()` + membership/role checks that were
  * previously copy-pasted into every server page. Call them at the top of a
@@ -13,20 +14,61 @@ export type { ClassRole };
  * the verified data on success, so the rest of the function can assume a
  * valid, authorised user.
  *
+ * The read helpers are wrapped in React `cache()`, which memoises by arguments
+ * for the duration of a single request. Because a layout and the page it wraps
+ * render in the same request, calling e.g. `getCurrentUser()` or
+ * `getClassMembership(id, uid)` in both does the network round-trip *once* and
+ * reuses the result — eliminating the duplicate auth/membership/class fetches
+ * that used to run in the layout and then again in every page.
+ *
  * NOTE: until RLS is enabled these are app-layer guards only. They protect
  * the rendered pages, not the database. The database-level equivalent is the
  * RLS work tracked in PRODUCTION-TASKS-BY-DIFFICULTY.md.
  */
 
-/** Returns the authenticated user, or redirects to /login. */
-export async function requireAuth() {
-  const supabase = await createClient();
+/** One Supabase server client per request (cookies read once, client reused). */
+export const getServerClient = cache(() => createClient());
+
+/** The authenticated user for this request, or null. Deduped per request. */
+export const getCurrentUser = cache(async () => {
+  const supabase = await getServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  return user;
+});
+
+/** Returns the authenticated user, or redirects to /login. */
+export async function requireAuth() {
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
   return user;
 }
+
+/** The current user's membership row for a class, or null. Deduped per request. */
+export const getClassMembership = cache(async (classId: string, userId: string) => {
+  const supabase = await getServerClient();
+  const { data } = await supabase
+    .from("class_members")
+    .select("role")
+    .eq("class_id", classId)
+    .eq("user_id", userId)
+    .single();
+  return data ? { role: data.role as ClassRole } : null;
+});
+
+/** Full class row (the columns the app needs), or null. Deduped per request. */
+export const getClassRow = cache(async (classId: string) => {
+  const supabase = await getServerClient();
+  const { data } = await supabase
+    .from("classes")
+    .select(
+      "id, title, subject, level, cycle_hours, description, tutor_notes, created_by, deleted_at"
+    )
+    .eq("id", classId)
+    .single();
+  return data;
+});
 
 /**
  * Ensures the current user is a member of the given class.
@@ -34,21 +76,10 @@ export async function requireAuth() {
  * Returns the user and their role within the class.
  */
 export async function requireClassMember(classId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: membership } = await supabase
-    .from("class_members")
-    .select("role")
-    .eq("class_id", classId)
-    .eq("user_id", user.id)
-    .single();
-
+  const user = await requireAuth();
+  const membership = await getClassMembership(classId, user.id);
   if (!membership) redirect("/dashboard");
-  return { user, role: membership.role as ClassRole };
+  return { user, role: membership.role };
 }
 
 /**

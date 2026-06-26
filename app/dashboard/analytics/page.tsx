@@ -1,21 +1,27 @@
-import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
+import { getServerClient, getCurrentUser } from "@/lib/auth";
 import { AppShell } from "@/components/shell/app-shell";
 import AnalyticsClient from "./AnalyticsClient";
 
 export default async function AnalyticsPage() {
-  const supabase = await createClient();
+  const supabase = await getServerClient();
+  const fallback = ["00000000-0000-0000-0000-000000000000"];
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("users").select("full_name").eq("id", user.id).single();
-
-  const { data: allMemberships } = await supabase
-    .from("class_members")
-    .select(`role, classes (id, title, subject, level, cycle_hours, deleted_at)`)
-    .eq("user_id", user.id);
+  // Batch 1 — all depend only on the user.
+  const [{ data: profile }, { data: allMemberships }, { data: linkedChildren }] = await Promise.all([
+    supabase.from("users").select("full_name").eq("id", user.id).single(),
+    supabase
+      .from("class_members")
+      .select(`role, classes (id, title, subject, level, cycle_hours, deleted_at)`)
+      .eq("user_id", user.id),
+    supabase
+      .from("parent_students")
+      .select(`student:users!parent_students_student_id_fkey (id, full_name)`)
+      .eq("parent_id", user.id),
+  ]);
 
   const memberships = (allMemberships ?? []).filter((m: any) => m.classes && !m.classes.deleted_at);
   const tutorMemberships = memberships.filter((m: any) => m.role === "tutor");
@@ -24,19 +30,49 @@ export default async function AnalyticsPage() {
   const tutorClassIds = tutorMemberships.map((m: any) => m.classes.id);
   const studentClassIds = studentMemberships.map((m: any) => m.classes.id);
   const allClassIds = [...new Set([...tutorClassIds, ...studentClassIds])];
-  const fallback = ["00000000-0000-0000-0000-000000000000"];
+  const inAll = allClassIds.length > 0 ? allClassIds : fallback;
+  const parentClassIds = memberships.map((m: any) => m.classes.id);
 
-  const { data: allLessons } = await supabase
-    .from("lessons")
-    .select("id, class_id, duration_hours, status, scheduled_at")
-    .in("class_id", allClassIds.length > 0 ? allClassIds : fallback)
-    .is("deleted_at", null);
-
-  const { data: allHomework } = await supabase
-    .from("homework")
-    .select("id, class_id, deadline")
-    .in("class_id", allClassIds.length > 0 ? allClassIds : fallback)
-    .is("deleted_at", null);
+  // Batch 2 — depend on the class-id sets (and the linked children) from batch 1.
+  const [
+    { data: allLessons },
+    { data: allHomework },
+    { data: allCycles },
+    { data: allCycleMembers },
+    parentChildren,
+  ] = await Promise.all([
+    supabase
+      .from("lessons")
+      .select("id, class_id, duration_hours, status, scheduled_at")
+      .in("class_id", inAll)
+      .is("deleted_at", null),
+    supabase
+      .from("homework")
+      .select("id, class_id, deadline")
+      .in("class_id", inAll)
+      .is("deleted_at", null),
+    supabase
+      .from("payment_cycles")
+      .select("id, class_id, cycle_number, started_at, closed_at, paid_at, payment_amount, payment_currency")
+      .in("class_id", tutorClassIds.length > 0 ? tutorClassIds : fallback)
+      .order("started_at", { ascending: true }),
+    supabase.from("class_members").select("class_id, user_id, role").in("class_id", inAll),
+    Promise.all(
+      (linkedChildren ?? []).map(async (link: any) => {
+        const child = link.student;
+        const { data: childMemberships } = await supabase
+          .from("class_members")
+          .select("class_id")
+          .eq("user_id", child.id)
+          .in("class_id", parentClassIds.length > 0 ? parentClassIds : fallback);
+        return {
+          id: child.id,
+          full_name: child.full_name,
+          sharedClassIds: (childMemberships ?? []).map((m: any) => m.class_id),
+        };
+      })
+    ),
+  ]);
 
   const hwIds = (allHomework ?? []).map(h => h.id);
   const { data: allSubmissions } = await supabase
@@ -44,46 +80,8 @@ export default async function AnalyticsPage() {
     .select("id, homework_id, student_id, grade, created_at")
     .in("homework_id", hwIds.length > 0 ? hwIds : fallback);
 
-  const { data: allCycles } = await supabase
-    .from("payment_cycles")
-    .select("id, class_id, cycle_number, started_at, closed_at, paid_at, payment_amount, payment_currency")
-    .in("class_id", tutorClassIds.length > 0 ? tutorClassIds : fallback)
-    .order("started_at", { ascending: true });
-
-  const { data: allCycleMembers } = await supabase
-    .from("class_members")
-    .select("class_id, user_id, role")
-    .in("class_id", allClassIds.length > 0 ? allClassIds : fallback);
-
   const fullName = profile?.full_name ?? "";
   const userInitials = fullName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
-
-  // Fetch children linked to this user (as parent)
-const { data: linkedChildren } = await supabase
-  .from("parent_students")
-  .select(`student:users!parent_students_student_id_fkey (id, full_name)`)
-  .eq("parent_id", user.id);
-
-// For each child, find classes where both parent and child are members
-const parentClassIds = allMemberships
-  ?.filter((m: any) => m.classes && !m.classes.deleted_at)
-  .map((m: any) => m.classes.id) ?? [];
-
-const parentChildren = await Promise.all(
-  (linkedChildren ?? []).map(async (link: any) => {
-    const child = link.student;
-    const { data: childMemberships } = await supabase
-      .from("class_members")
-      .select("class_id")
-      .eq("user_id", child.id)
-      .in("class_id", parentClassIds.length > 0 ? parentClassIds : ["00000000-0000-0000-0000-000000000000"]);
-    return {
-      id: child.id,
-      full_name: child.full_name,
-      sharedClassIds: (childMemberships ?? []).map((m: any) => m.class_id),
-    };
-  })
-);
 
 return (
   <AppShell mode="dashboard" tutorInitials={userInitials} tutorName={fullName} role="tutor" breadcrumb={{ root: "Analytics" }}>

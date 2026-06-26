@@ -1,19 +1,3 @@
-/* =============================================================================
- * app/dashboard/DashboardClient.tsx — tutor/student/parent home
- * -----------------------------------------------------------------------------
- * Renders the signed-in dashboard from data fetched in page.tsx:
- *   • a greeting header with a "New class" action,
- *   • four headline stats (derived from the class lists + pending invites),
- *   • the user's classes grouped by relationship (teach / attend / observe),
- *   • an edit-class modal for classes the user created.
- *
- * Adapted from the redesign mockup to our real capabilities: the mockup's
- * "Today" and "Homework" panels need lesson data this page doesn't load, so we
- * show stats we actually have instead of inventing them. The non-functional
- * EN/GE language toggle from the old UI was dropped.
- *
- * Class mutations go through the existing server actions (./actions).
- * ========================================================================== */
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -21,19 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { updateClass, deleteClass } from "./actions";
-import { PageContainer, PageHeader } from "@/components/shell/page";
+import type { DashboardClassRow } from "@/lib/dashboard-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { StatCard } from "@/components/ui/stat-card";
-import { EmptyState } from "@/components/ui/empty-state";
 import { IconButton } from "@/components/ui/icon-button";
-import { PlusIcon, ClassesIcon, CloseIcon } from "@/components/icons";
+import { CloseIcon } from "@/components/icons";
 
-/** Role → badge label + tone. */
 const ROLE: Record<string, { label: string; tone: "accent" | "ok" | "warn" | "neutral" }> = {
   tutor: { label: "Tutor", tone: "accent" },
   student: { label: "Student", tone: "ok" },
@@ -41,9 +22,9 @@ const ROLE: Record<string, { label: string; tone: "accent" | "ok" | "warn" | "ne
   employer: { label: "Employer", tone: "neutral" },
 };
 
-// ─── Edit modal ──────────────────────────────────────────────────────────────
+export type { DashboardClassRow as ClassRow };
 
-function EditClassModal({ cls, onClose }: { cls: ClassRow; onClose: () => void }) {
+function EditClassModal({ cls, onClose }: { cls: DashboardClassRow; onClose: () => void }) {
   const router = useRouter();
 
   const [title, setTitle] = useState(cls.title ?? "");
@@ -91,7 +72,7 @@ function EditClassModal({ cls, onClose }: { cls: ClassRow; onClose: () => void }
       setError(error);
       return;
     }
-    router.push("/dashboard");
+    router.push("/dashboard/classes");
     router.refresh();
   }
 
@@ -137,7 +118,6 @@ function EditClassModal({ cls, onClose }: { cls: ClassRow; onClose: () => void }
               <Input id="ec-hours" type="number" min={1} value={cycleHours} onChange={(e) => setCycleHours(e.target.value)} />
             </Field>
 
-            {/* Payment per cycle */}
             <div className="border-t border-line pt-3">
               <Field label="Payment per cycle" htmlFor="ec-amount" optional>
                 <div className="grid grid-cols-2 gap-3">
@@ -199,15 +179,12 @@ function EditClassModal({ cls, onClose }: { cls: ClassRow; onClose: () => void }
   );
 }
 
-// ─── Class card ──────────────────────────────────────────────────────────────
-
-function ClassCard({ cls }: { cls: ClassRow }) {
+export function ClassCard({ cls }: { cls: DashboardClassRow }) {
   const role = ROLE[cls.role] ?? ROLE.tutor;
   const [showMenu, setShowMenu] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close the ⋯ menu on outside click.
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false);
@@ -266,7 +243,7 @@ function ClassCard({ cls }: { cls: ClassRow }) {
   );
 }
 
-function ClassGroup({ title, classes }: { title: string; classes: ClassRow[] }) {
+export function ClassGroup({ title, classes }: { title: string; classes: DashboardClassRow[] }) {
   if (classes.length === 0) return null;
   return (
     <section className="mb-9">
@@ -277,108 +254,5 @@ function ClassGroup({ title, classes }: { title: string; classes: ClassRow[] }) 
         ))}
       </div>
     </section>
-  );
-}
-
-// ─── Page ────────────────────────────────────────────────────────────────────
-
-/** Shape of a class row as assembled in page.tsx. */
-type ClassRow = {
-  id: string;
-  title: string;
-  subject?: string | null;
-  level?: string | null;
-  description?: string | null;
-  tutor_notes?: string | null;
-  cycle_hours: number;
-  role: string;
-  member_count: number;
-  isCreator: boolean;
-  paymentAmount: number | null;
-  paymentCurrency: string;
-};
-
-export default function DashboardClient({
-  firstName,
-  allClasses,
-  teaching,
-  attending,
-  observing,
-  pendingInvites,
-}: {
-  userId: string;
-  firstName: string;
-  fullName: string;
-  allClasses: ClassRow[];
-  teaching: ClassRow[];
-  attending: ClassRow[];
-  observing: ClassRow[];
-  pendingInvites: number;
-  avatarColors: unknown[];
-  roleConfig: unknown;
-}) {
-  // Compute the date label client-side to avoid SSR/CSR locale mismatches.
-  const [dateLabel, setDateLabel] = useState("");
-  useEffect(() => {
-    setDateLabel(
-      new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })
-    );
-  }, []);
-
-  return (
-    <PageContainer>
-      <PageHeader
-        eyebrow={dateLabel}
-        title={firstName ? `Hello, ${firstName}` : "Hello"}
-        sub={
-          allClasses.length === 0
-            ? "No classes yet"
-            : `${allClasses.length} ${allClasses.length === 1 ? "class" : "classes"}`
-        }
-        action={
-          <Button asChild>
-            <Link href="/classes/new">
-              <PlusIcon size={16} /> New class
-            </Link>
-          </Button>
-        }
-      />
-
-      {/* Headline stats (derived from what we actually load) */}
-      <div className="mb-8 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        <StatCard label="All classes" value={allClasses.length} />
-        <StatCard label="Teaching" value={teaching.length} />
-        <StatCard label="Attending" value={attending.length} />
-        <Link href="/inbox" className="block">
-          <StatCard
-            label="Pending invites"
-            value={pendingInvites}
-            delta={pendingInvites > 0 ? "Review in inbox →" : "All caught up"}
-            deltaTone={pendingInvites > 0 ? "accent" : "muted"}
-          />
-        </Link>
-      </div>
-
-      {allClasses.length === 0 ? (
-        <EmptyState
-          icon={<ClassesIcon size={20} />}
-          title="No classes yet"
-          description="Create your first class or wait for an invite from a tutor."
-          action={
-            <Button asChild>
-              <Link href="/classes/new">
-                <PlusIcon size={16} /> Create class
-              </Link>
-            </Button>
-          }
-        />
-      ) : (
-        <>
-          <ClassGroup title="Classes I teach" classes={teaching} />
-          <ClassGroup title="Classes I attend" classes={attending} />
-          <ClassGroup title="Classes I observe" classes={observing} />
-        </>
-      )}
-    </PageContainer>
   );
 }

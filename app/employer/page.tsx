@@ -1,23 +1,25 @@
-import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
+import { getServerClient, getCurrentUser } from "@/lib/auth";
 import EmployerLayout from "./EmployerLayout";
 import EmployerClient from "./EmployerClient";
 
 export default async function EmployerDashboardPage() {
-  const supabase = await createClient();
+  const supabase = await getServerClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("users").select("full_name, is_employer").eq("id", user.id).single();
+  // profile (for the redirect) + employer memberships are independent.
+  const [{ data: profile }, { data: memberships }] = await Promise.all([
+    supabase.from("users").select("full_name, is_employer").eq("id", user.id).single(),
+    supabase
+      .from("class_members")
+      .select(`role, classes (id, title, subject, level, cycle_hours, deleted_at, created_by)`)
+      .eq("user_id", user.id)
+      .eq("role", "employer"),
+  ]);
 
   if (!profile?.is_employer) redirect("/dashboard");
-
-  const { data: memberships } = await supabase
-    .from("class_members")
-    .select(`role, classes (id, title, subject, level, cycle_hours, deleted_at, created_by)`)
-    .eq("user_id", user.id).eq("role", "employer");
 
   const classes = (memberships ?? [])
     .filter((m: any) => m.classes && !m.classes.deleted_at)
