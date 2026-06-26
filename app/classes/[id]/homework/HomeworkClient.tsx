@@ -7,7 +7,7 @@ import Link from "next/link";
 import type { Attachment } from "@/lib/types";
 import { deadlineStatus } from "@/lib/homework";
 import { homeworkSchema, firstError } from "@/lib/validation";
-import { submitHomework } from "./actions";
+import { submitHomework, createHomework, updateHomework, deleteHomework } from "./actions";
 
 interface Homework {
   id: string;
@@ -428,30 +428,24 @@ function HwModal({ classId, userId, editTarget, onClose, onSuccess }: HwModalPro
 
     const finalAttachments = [...existingAttachments, ...uploadedAttachments];
 
-    if (isEdit) {
-      const { error: dbErr } = await supabase
-        .from("homework")
-        .update({
+    const { error: dbErr } = isEdit
+      ? await updateHomework({
+          hwId: editTarget!.id,
+          classId,
           title,
-          description: desc || null,
-          deadline: new Date(deadline).toISOString(),
+          description: desc,
+          deadline,
           attachments: finalAttachments,
         })
-        .eq("id", editTarget!.id);
-      setLoading(false);
-      if (dbErr) { setError(dbErr.message); return; }
-    } else {
-      const { error: dbErr } = await supabase.from("homework").insert({
-        class_id: classId,
-        created_by: userId,
-        title,
-        description: desc || null,
-        deadline: new Date(deadline).toISOString(),
-        attachments: finalAttachments,
-      });
-      setLoading(false);
-      if (dbErr) { setError(dbErr.message); return; }
-    }
+      : await createHomework({
+          classId,
+          title,
+          description: desc,
+          deadline,
+          attachments: finalAttachments,
+        });
+    setLoading(false);
+    if (dbErr) { setError(dbErr); return; }
 
     onSuccess();
   }
@@ -640,8 +634,9 @@ export default function HomeworkClient({ classId, userId, role, homework, submis
 
   async function handleDelete(hwId: string) {
     setDeletingId(hwId);
-    await supabase.from("homework").update({ deleted_at: new Date().toISOString() }).eq("id", hwId);
+    const { error } = await deleteHomework(hwId, classId);
     setDeletingId(null);
+    if (error) { setSubmitError(error); return; }
     router.refresh();
   }
 

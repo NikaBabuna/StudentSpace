@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 import { classCreateSchema, firstError } from "@/lib/validation";
+import { createClass } from "./actions";
 
 export default function NewClassPage() {
   const router = useRouter();
-  const supabase = createClient();
 
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
@@ -41,38 +40,19 @@ export default function NewClassPage() {
 
     setLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push("/login"); return; }
-
-    const { data: newClass, error: classError } = await supabase
-      .from("classes")
-      .insert({
-        created_by: user.id,
-        title,
-        subject: subject || null,
-        level: level || null,
-        description: description || null,
-        cycle_hours: hours,
-      })
-      .select()
-      .single();
-
-    if (classError) { setError(classError.message); setLoading(false); return; }
-
-    const { error: memberError } = await supabase
-      .from("class_members")
-      .insert({ class_id: newClass.id, user_id: user.id, role: "tutor" });
-
-    if (memberError) { setError(memberError.message); setLoading(false); return; }
-
-    await supabase.from("payment_cycles").insert({
-      class_id: newClass.id,
-      cycle_number: 1,
-      payment_amount: paymentAmount ? parseFloat(paymentAmount) : null,
-      payment_currency: paymentCurrency,
+    const { classId, error: createError } = await createClass({
+      title,
+      subject,
+      level,
+      description,
+      cycleHours: hours,
+      paymentAmount: paymentAmount ? parseFloat(paymentAmount) : null,
+      paymentCurrency,
     });
 
-    router.push(`/classes/${newClass.id}/overview`);
+    if (createError || !classId) { setError(createError ?? "Could not create class."); setLoading(false); return; }
+
+    router.push(`/classes/${classId}/overview`);
   }
 
   return (

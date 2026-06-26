@@ -3,6 +3,15 @@
 import { useState, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import {
+  createMaterialGroup,
+  insertMaterials,
+  renameMaterialGroup,
+  deleteMaterial,
+  deleteMaterialGroup,
+  toggleMaterialPin,
+  type MaterialItem,
+} from "./actions";
 
 interface Group {
   id: string;
@@ -177,13 +186,12 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
   async function togglePin(materialId: string) {
     const pinned = pinnedFiles.includes(materialId);
     setPinnedFiles(prev => pinned ? prev.filter(f => f !== materialId) : [...prev, materialId]);
-    await supabase.from("materials").update({ is_pinned: !pinned }).eq("id", materialId);
+    await toggleMaterialPin(classId, materialId, !pinned);
   }
 
   async function handleDeleteFile(materialId: string) {
-    await supabase.from("materials")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", materialId);
+    const { error } = await deleteMaterial(classId, materialId);
+    if (error) { setManageError(error); return; }
     router.refresh();
   }
 
@@ -193,13 +201,10 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
     setUploadLoading(true);
     setUploadError(null);
 
-    const { data: group, error: groupError } = await supabase
-      .from("material_groups")
-      .insert({ class_id: classId, created_by: userId, name: newGroupName.trim() })
-      .select().single();
+    const { groupId, error: groupError } = await createMaterialGroup(classId, newGroupName.trim());
+    if (groupError || !groupId) { setUploadError(groupError ?? "Could not create group."); setUploadLoading(false); return; }
 
-    if (groupError) { setUploadError(groupError.message); setUploadLoading(false); return; }
-
+    const items: MaterialItem[] = [];
     for (let i = 0; i < uploadFiles.length; i++) {
       const file = uploadFiles[i];
       setUploadProgress(`Uploading ${i + 1} of ${uploadFiles.length}…`);
@@ -208,19 +213,21 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
       const { error: storageError } = await supabase.storage.from("materials").upload(path, file);
       if (storageError) { setUploadError(storageError.message); setUploadLoading(false); return; }
       const { data: { publicUrl } } = supabase.storage.from("materials").getPublicUrl(path);
-      await supabase.from("materials").insert({
-        group_id: group.id, class_id: classId, uploaded_by: userId,
-        title: cleanName(file.name),
-        file_url: publicUrl, file_name: file.name,
-        file_size_bytes: file.size, mime_type: file.type, is_pinned: false,
+      items.push({
+        groupId, title: cleanName(file.name),
+        fileUrl: publicUrl, fileName: file.name,
+        fileSizeBytes: file.size, mimeType: file.type,
       });
     }
+
+    const { error: insertError } = await insertMaterials(classId, items);
+    if (insertError) { setUploadError(insertError); setUploadLoading(false); return; }
 
     setUploadLoading(false);
     setUploadProgress(null);
     setShowUploadModal(false);
     setNewGroupName(""); setUploadFiles([]);
-    setOpenGroups(prev => [...prev, group.id]);
+    setOpenGroups(prev => [...prev, groupId]);
     router.refresh();
   }
 
@@ -230,6 +237,7 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
     setAddLoading(true);
     setManageError(null);
 
+    const items: MaterialItem[] = [];
     for (let i = 0; i < addFiles.length; i++) {
       const file = addFiles[i];
       setAddProgress(`Uploading ${i + 1} of ${addFiles.length}…`);
@@ -238,13 +246,15 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
       const { error: storageError } = await supabase.storage.from("materials").upload(path, file);
       if (storageError) { setManageError(storageError.message); setAddLoading(false); return; }
       const { data: { publicUrl } } = supabase.storage.from("materials").getPublicUrl(path);
-      await supabase.from("materials").insert({
-        group_id: managingGroup.id, class_id: classId, uploaded_by: userId,
-        title: cleanName(file.name),
-        file_url: publicUrl, file_name: file.name,
-        file_size_bytes: file.size, mime_type: file.type, is_pinned: false,
+      items.push({
+        groupId: managingGroup.id, title: cleanName(file.name),
+        fileUrl: publicUrl, fileName: file.name,
+        fileSizeBytes: file.size, mimeType: file.type,
       });
     }
+
+    const { error: insertError } = await insertMaterials(classId, items);
+    if (insertError) { setManageError(insertError); setAddLoading(false); return; }
 
     setAddLoading(false);
     setAddProgress(null);
@@ -255,21 +265,16 @@ export default function MaterialsClient({ classId, userId, role, groups, materia
   async function handleRename(e: React.FormEvent) {
     e.preventDefault();
     if (!managingGroup || !renameName.trim()) return;
-    await supabase.from("material_groups")
-      .update({ name: renameName.trim() })
-      .eq("id", managingGroup.id);
+    const { error } = await renameMaterialGroup(classId, managingGroup.id, renameName.trim());
+    if (error) { setManageError(error); return; }
     setRenaming(false);
     router.refresh();
   }
 
   async function handleDeleteGroup() {
     if (!managingGroup) return;
-    await supabase.from("materials")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("group_id", managingGroup.id);
-    await supabase.from("material_groups")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", managingGroup.id);
+    const { error } = await deleteMaterialGroup(classId, managingGroup.id);
+    if (error) { setManageError(error); return; }
     setManagingGroup(null);
     setConfirmDelete(false);
     router.refresh();

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
+import { sendInvite } from "./actions";
 
 type InviteRole = "student" | "parent" | "tutor" | "employer";
 
@@ -48,50 +49,13 @@ export default function InviteClient({ classId }: { classId: string }) {
     setLoading(true);
     setError(null);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push("/login"); return; }
-
     const effectiveRole = foundUser.is_employer ? "employer" : role;
-
-    const { data: existing } = await supabase
-      .from("class_members")
-      .select("id")
-      .eq("class_id", classId)
-      .eq("user_id", foundUser.id)
-      .single();
-
-    if (existing) {
-      setError("This person is already a member of this class.");
-      setLoading(false);
-      return;
-    }
-
-    const { data: existingInvite } = await supabase
-      .from("invites")
-      .select("id, status")
-      .eq("class_id", classId)
-      .eq("invited_user_id", foundUser.id)
-      .single();
-
-    if (existingInvite?.status === "pending") {
-      setError("This person already has a pending invite to this class.");
-      setLoading(false);
-      return;
-    }
-
-    const { error: inviteError } = await supabase
-      .from("invites")
-      .insert({
-        class_id: classId,
-        invited_by: user.id,
-        invited_user_id: foundUser.id,
-        role: effectiveRole,
-      });
+    const { error: inviteError } = await sendInvite(classId, email, effectiveRole);
 
     setLoading(false);
 
     if (inviteError) {
-      setError(inviteError.message);
+      setError(inviteError);
       return;
     }
 

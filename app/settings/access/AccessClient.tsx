@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import {
+  sendParentRequest,
+  removeChild as removeChildAction,
+  removeParent as removeParentAction,
+} from "./actions";
 
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
@@ -82,7 +86,6 @@ export default function AccessClient({ userId, children, parents, sentRequests }
   parents: any[];
   sentRequests: any[];
 }) {
-  const supabase = createClient();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -97,62 +100,10 @@ export default function AccessClient({ userId, children, parents, sentRequests }
     setSendError(null);
     setSendSuccess(false);
 
-    // Find user by email
-    const { data: found } = await supabase
-      .from("users")
-      .select("id, full_name")
-      .eq("email", email.trim().toLowerCase())
-      .single();
-
-    if (!found) {
-      setSendError("No account found with that email.");
-      setSearching(false);
-      return;
-    }
-
-    if (found.id === userId) {
-      setSendError("You can't link yourself.");
-      setSearching(false);
-      return;
-    }
-
-    // Check if already linked
-    const { data: existing } = await supabase
-      .from("parent_students")
-      .select("id")
-      .eq("parent_id", userId)
-      .eq("student_id", found.id)
-      .single();
-
-    if (existing) {
-      setSendError("Already linked to this person.");
-      setSearching(false);
-      return;
-    }
-
-    // Check if request already pending
-    const { data: existingReq } = await supabase
-      .from("parent_requests")
-      .select("id")
-      .eq("parent_id", userId)
-      .eq("student_id", found.id)
-      .eq("status", "pending")
-      .single();
-
-    if (existingReq) {
-      setSendError("A request is already pending.");
-      setSearching(false);
-      return;
-    }
-
-    const { error } = await supabase.from("parent_requests").insert({
-      parent_id: userId,
-      student_id: found.id,
-      status: "pending",
-    });
+    const { error } = await sendParentRequest(email);
 
     setSearching(false);
-    if (error) { setSendError(error.message); return; }
+    if (error) { setSendError(error); return; }
     setEmail("");
     setSendSuccess(true);
     router.refresh();
@@ -160,21 +111,17 @@ export default function AccessClient({ userId, children, parents, sentRequests }
 
   async function removeChild(studentId: string) {
     setRemoving(studentId);
-    await supabase.from("parent_students")
-      .delete()
-      .eq("parent_id", userId)
-      .eq("student_id", studentId);
+    const { error } = await removeChildAction(studentId);
     setRemoving(null);
+    if (error) return;
     router.refresh();
   }
 
   async function removeParent(parentId: string) {
     setRemoving(parentId);
-    await supabase.from("parent_students")
-      .delete()
-      .eq("parent_id", parentId)
-      .eq("student_id", userId);
+    const { error } = await removeParentAction(parentId);
     setRemoving(null);
+    if (error) return;
     router.refresh();
   }
 

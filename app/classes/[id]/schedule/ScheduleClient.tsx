@@ -1,10 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
-import { sumCompletedHours, computeCycleClose } from "@/lib/payments";
 import { lessonSchema, firstError } from "@/lib/validation";
+import {
+  completeLesson,
+  missLesson,
+  cancelLesson,
+  deleteLesson,
+  scheduleLesson,
+  markCyclePaid,
+} from "./actions";
 
 interface Lesson {
   id: string;
@@ -81,7 +87,6 @@ export default function ScheduleClient({ classId, userId, role, lessons, cycles,
   cycles: Cycle[];
   cycleHours: number;
 }) {
-  const supabase = createClient();
   const router = useRouter();
   const isTutor = role === "tutor";
 
@@ -95,7 +100,6 @@ export default function ScheduleClient({ classId, userId, role, lessons, cycles,
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const activeCycle = cycles.find(c => !c.closed_at);
   const weekStart = getWeekStart(weekOffset);
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
 
@@ -119,65 +123,20 @@ export default function ScheduleClient({ classId, userId, role, lessons, cycles,
   const missedNeedingMakeup = lessons.filter(l => needsMakeup(l, lessons));
 
 async function handleAction(lessonId: string, action: string) {
-  if (action === "completed") {
-    const lesson = lessons.find(l => l.id === lessonId);
-    if (!lesson) return;
-
-    const hoursInCycle = activeCycle ? sumCompletedHours(lessons, activeCycle.id) : 0;
-    const { closesCycle, overflowHours } = computeCycleClose({
-      hoursInCycle,
-      lessonHours: lesson.duration_hours,
-      cycleTarget: cycleHours,
-    });
-
-    if (activeCycle && closesCycle) {
-      // Close current cycle
-      await supabase.from("lessons").update({
-        status: "completed",
-        payment_cycle_id: activeCycle.id,
-      }).eq("id", lessonId);
-
-      await supabase.from("payment_cycles")
-        .update({ closed_at: new Date().toISOString() })
-        .eq("id", activeCycle.id);
-
-      // Create next cycle
-      const { data: newCycle } = await supabase.from("payment_cycles").insert({
-        class_id: classId,
-        cycle_number: activeCycle.cycle_number + 1,
-      }).select().single();
-
-      // Carry overflow hours into the new cycle as a separate completed entry,
-      // leaving the original lesson recorded in the cycle it completed.
-      if (overflowHours > 0 && newCycle) {
-        await supabase.from("lessons").insert({
-          class_id: classId,
-          scheduled_at: lesson.scheduled_at,
-          duration_hours: overflowHours,
-          status: "completed",
-          payment_cycle_id: newCycle.id,
-        });
-      }
-    } else {
-      await supabase.from("lessons").update({
-        status: "completed",
-        payment_cycle_id: activeCycle?.id ?? null,
-      }).eq("id", lessonId);
-    }
-  } else if (action === "missed") {
-    await supabase.from("lessons").update({ status: "missed" }).eq("id", lessonId);
-  } else if (action === "cancelled") {
-    await supabase.from("lessons").update({ status: "cancelled" }).eq("id", lessonId);
-  }
+  setError(null);
+  let result: { error: string | null } | undefined;
+  if (action === "completed") result = await completeLesson(lessonId);
+  else if (action === "missed") result = await missLesson(lessonId);
+  else if (action === "cancelled") result = await cancelLesson(lessonId);
+  if (result?.error) { setError(result.error); return; }
   router.refresh();
 }
 
 async function handleMarkPaid(cycleId: string) {
   setMarkingPaidId(cycleId);
-  await supabase.from("payment_cycles")
-    .update({ paid_at: new Date().toISOString() })
-    .eq("id", cycleId);
+  const { error } = await markCyclePaid(cycleId, classId);
   setMarkingPaidId(null);
+  if (error) { setError(error); return; }
   router.refresh();
 }
 
@@ -188,9 +147,9 @@ function cycleStatus(c: Cycle) {
 }
 
 async function handleDelete(lessonId: string) {
-  await supabase.from("lessons")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", lessonId);
+  setError(null);
+  const { error } = await deleteLesson(lessonId);
+  if (error) { setError(error); return; }
   setSelectedId(null);
   router.refresh();
 }
@@ -203,15 +162,14 @@ async function handleDelete(lessonId: string) {
     if (!parsed.success) { setError(firstError(parsed.error)); return; }
 
     setLoading(true);
-const { error } = await supabase.from("lessons").insert({
-  class_id: classId,
-  scheduled_at: new Date(scheduledAt).toISOString(),
-  duration_hours: durationHours,
-  status: "scheduled",
-  replaces_lesson_id: makeupForId || null,
-});
+    const { error } = await scheduleLesson({
+      classId,
+      scheduledAt,
+      durationHours,
+      makeupForId: makeupForId || undefined,
+    });
     setLoading(false);
-    if (error) { setError(error.message); return; }
+    if (error) { setError(error); return; }
     setShowModal(false);
     setScheduledAt(""); setMakeupForId("");
     router.refresh();
