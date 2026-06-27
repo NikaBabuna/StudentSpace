@@ -1,7 +1,7 @@
 /* =============================================================================
  * features/dashboard/components/DashboardHomeClient.tsx — tutor dashboard home
  * -----------------------------------------------------------------------------
- * Role: Renders greeting, stat cards, today’s sessions, homework attention,
+ * Role: Renders greeting, stat cards, upcoming lessons, homework attention,
  *       and class shortcuts. Data is preloaded by loadDashboardData().
  * Dependencies: class-shared (ClassCard), components/ui
  * Used by: app/dashboard/page.tsx
@@ -16,7 +16,7 @@ import Link from "next/link";
 import type {
   DashboardClassRow,
   HomeworkAttentionRow,
-  TodaySessionRow,
+  UpcomingSessionRow,
 } from "@/lib/dashboard-data";
 import type { DashboardStat } from "@/lib/dashboard-stats";
 import { PageContainer, PageHeader } from "@/components/shell/page-container";
@@ -26,6 +26,12 @@ import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlusIcon, ClassesIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
+import {
+  readRecentClassVisits,
+  sortClassesByRecency,
+  sortClassesForPreview,
+  sortItemsByClassRecency,
+} from "@/lib/recent-classes";
 
 function PanelCard({
   title,
@@ -49,14 +55,58 @@ function PanelCard({
   );
 }
 
-function TodayRow({ session }: { session: TodaySessionRow }) {
+const UPCOMING_PREVIEW_LIMIT = 4;
+const CLASS_PREVIEW_COUNT = 3;
+const HOMEWORK_PREVIEW_COUNT = 3;
+
+function LessonsToggle({
+  value,
+  onChange,
+}: {
+  value: "today" | "overall";
+  onChange: (value: "today" | "overall") => void;
+}) {
+  const opts: { key: "today" | "overall"; label: string }[] = [
+    { key: "today", label: "Today" },
+    { key: "overall", label: "Overall" },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-1 rounded-xl border border-line bg-surface-2 p-1">
+      {opts.map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          onClick={() => onChange(o.key)}
+          className={cn(
+            "rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors",
+            value === o.key
+              ? "bg-surface text-ink shadow-[var(--shadow-sm)]"
+              : "text-muted hover:text-ink-2"
+          )}
+          aria-pressed={value === o.key}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function UpcomingRow({
+  session,
+  showWhen,
+}: {
+  session: UpcomingSessionRow;
+  showWhen: boolean;
+}) {
   return (
     <Link
       href={`/classes/${session.classId}/schedule`}
       className="flex gap-4 border-t border-line py-3.5 first:border-t-0 first:pt-0 transition-colors hover:opacity-90"
     >
-      <div className="min-w-[60px] text-right">
-        <div className="text-[15px] font-semibold text-ink">{session.time}</div>
+      <div className="min-w-[88px] text-right">
+        <div className="text-[15px] font-semibold text-ink">{showWhen ? session.when : session.time}</div>
         <div className="font-mono text-[12px] text-muted">{session.duration}</div>
       </div>
       <div className="w-[3px] shrink-0 rounded-sm bg-accent" />
@@ -71,12 +121,21 @@ function TodayRow({ session }: { session: TodaySessionRow }) {
   );
 }
 
-function ClassPreviewRow({ cls }: { cls: DashboardClassRow }) {
+function ClassPreviewRow({
+  cls,
+  className,
+}: {
+  cls: DashboardClassRow;
+  className?: string;
+}) {
   const meta = [cls.subject, cls.level].filter(Boolean).join(" · ") || "No subject set";
   return (
     <Link
       href={`/classes/${cls.id}/overview`}
-      className="flex items-center gap-3 border-t border-line px-2 py-3 first:border-t-0 transition-colors hover:bg-surface-2 rounded-lg"
+      className={cn(
+        "flex items-center gap-3 border-t border-line px-2 py-3 first:border-t-0 transition-colors hover:bg-surface-2 rounded-lg",
+        className
+      )}
     >
       <span className="size-[9px] shrink-0 rounded-full" style={{ background: cls.dotColor }} />
       <div className="min-w-0 flex-1">
@@ -90,10 +149,55 @@ function ClassPreviewRow({ cls }: { cls: DashboardClassRow }) {
   );
 }
 
-function HomeworkRow({ item }: { item: HomeworkAttentionRow }) {
-  const dueTone = item.dueTone === "warn" ? "warn" : item.dueTone === "ok" ? "ok" : "neutral";
+function ClassesPreviewList({
+  classes,
+}: {
+  classes: DashboardClassRow[];
+}) {
+  const hasMore = classes.length > CLASS_PREVIEW_COUNT;
+  const primary = classes.slice(0, CLASS_PREVIEW_COUNT);
+  const peek = hasMore ? classes[CLASS_PREVIEW_COUNT] : null;
+
   return (
-    <div className="flex items-center gap-3.5 border-t border-line py-3.5 first:border-t-0">
+    <div className="flex flex-col">
+      {primary.map((cls) => (
+        <ClassPreviewRow key={cls.id} cls={cls} />
+      ))}
+      {peek ? (
+        <div className="relative border-t border-line">
+          <div className="max-h-[40px] overflow-hidden">
+            <ClassPreviewRow cls={peek} className="pointer-events-none" />
+          </div>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-surface/75 to-surface" />
+          <div className="absolute inset-x-0 bottom-1.5 flex justify-center">
+            <Link
+              href="/dashboard/classes"
+              className="text-[13px] font-semibold text-accent hover:underline"
+            >
+              See all ({classes.length})
+            </Link>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function HomeworkRow({
+  item,
+  className,
+}: {
+  item: HomeworkAttentionRow;
+  className?: string;
+}) {
+  const dueTone = item.dueTone === "warn" ? "warn" : item.dueTone === "ok" ? "ok" : "neutral";
+  const href =
+    item.cta === "Grade"
+      ? `/classes/${item.classId}/homework/${item.id}`
+      : `/classes/${item.classId}/homework`;
+
+  return (
+    <div className={cn("flex items-center gap-3.5 border-t border-line py-3.5 first:border-t-0", className)}>
       <span className="size-[9px] shrink-0 rounded-full" style={{ background: item.dotColor }} />
       <div className="min-w-0 flex-1">
         <div className="text-[14.5px] font-semibold text-ink">{item.title}</div>
@@ -110,8 +214,42 @@ function HomeworkRow({ item }: { item: HomeworkAttentionRow }) {
         size="sm"
         className="h-9 shrink-0 px-4 text-[13px]"
       >
-        <Link href={`/classes/${item.classId}/homework`}>{item.cta}</Link>
+        <Link href={href}>{item.cta}</Link>
       </Button>
+    </div>
+  );
+}
+
+function HomeworkPreviewList({
+  items,
+}: {
+  items: HomeworkAttentionRow[];
+}) {
+  const hasMore = items.length > HOMEWORK_PREVIEW_COUNT;
+  const primary = items.slice(0, HOMEWORK_PREVIEW_COUNT);
+  const peek = hasMore ? items[HOMEWORK_PREVIEW_COUNT] : null;
+
+  return (
+    <div className="flex flex-col">
+      {primary.map((item) => (
+        <HomeworkRow key={item.id} item={item} />
+      ))}
+      {peek ? (
+        <div className="relative border-t border-line">
+          <div className="max-h-[52px] overflow-hidden">
+            <HomeworkRow item={peek} className="pointer-events-none" />
+          </div>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-surface/75 to-surface" />
+          <div className="absolute inset-x-0 bottom-1.5 flex justify-center">
+            <Link
+              href="/dashboard/classes"
+              className="text-[13px] font-semibold text-accent hover:underline"
+            >
+              See all ({items.length})
+            </Link>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -122,6 +260,7 @@ export default function DashboardHomeClient({
   stats,
   allClasses,
   todaySessions,
+  upcomingSessions,
   homeworkAttention,
   classesHeading,
   homeworkHeading,
@@ -130,25 +269,36 @@ export default function DashboardHomeClient({
   greetingSub: string;
   stats: DashboardStat[];
   allClasses: DashboardClassRow[];
-  todaySessions: TodaySessionRow[];
+  todaySessions: UpcomingSessionRow[];
+  upcomingSessions: UpcomingSessionRow[];
   homeworkAttention: HomeworkAttentionRow[];
   classesHeading: string;
   homeworkHeading: string;
 }) {
   const [dateLabel, setDateLabel] = useState("");
+  const [lessonsView, setLessonsView] = useState<"today" | "overall">("today");
+  const [previewClasses, setPreviewClasses] = useState(() => sortClassesForPreview(allClasses));
+  const [previewHomework, setPreviewHomework] = useState(() => homeworkAttention);
+
   useEffect(() => {
     setDateLabel(
       new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })
     );
   }, []);
 
-  const previewClasses = [...allClasses]
-    .sort((a, b) => {
-      if (a.nextSession && !b.nextSession) return -1;
-      if (!a.nextSession && b.nextSession) return 1;
-      return a.title.localeCompare(b.title);
-    })
-    .slice(0, 5);
+  useEffect(() => {
+    const visits = readRecentClassVisits();
+    setPreviewClasses(sortClassesByRecency(allClasses, visits));
+    setPreviewHomework(sortItemsByClassRecency(homeworkAttention, visits));
+  }, [allClasses, homeworkAttention]);
+
+  const activeSessions = lessonsView === "today" ? todaySessions : upcomingSessions;
+  const previewSessions = activeSessions.slice(0, UPCOMING_PREVIEW_LIMIT);
+  const hasMoreSessions = activeSessions.length > UPCOMING_PREVIEW_LIMIT;
+  const emptyMessage =
+    lessonsView === "today"
+      ? "No sessions scheduled for today."
+      : "No upcoming sessions across your classes.";
 
   return (
     <PageContainer>
@@ -194,20 +344,30 @@ export default function DashboardHomeClient({
         <>
           <div className="mb-[18px] grid grid-cols-1 gap-[18px] lg:grid-cols-[1.45fr_1fr]">
             <PanelCard
-              title="Today"
-              headerRight={
-                <span className="font-mono text-[12px] text-muted">
-                  {todaySessions.length} session{todaySessions.length === 1 ? "" : "s"}
-                </span>
-              }
+              title="Upcoming lessons"
+              headerRight={<LessonsToggle value={lessonsView} onChange={setLessonsView} />}
             >
-              {todaySessions.length === 0 ? (
-                <p className="text-[14px] text-muted">No sessions scheduled for today.</p>
+              {activeSessions.length === 0 ? (
+                <p className="text-[14px] text-muted">{emptyMessage}</p>
               ) : (
                 <div className="flex flex-col">
-                  {todaySessions.map((session) => (
-                    <TodayRow key={session.id} session={session} />
+                  {previewSessions.map((session) => (
+                    <UpcomingRow
+                      key={session.id}
+                      session={session}
+                      showWhen={lessonsView === "overall"}
+                    />
                   ))}
+                  {hasMoreSessions ? (
+                    <div className="border-t border-line pt-3">
+                      <Link
+                        href="/calendar"
+                        className="text-[13px] font-semibold text-accent hover:underline"
+                      >
+                        See all ({activeSessions.length})
+                      </Link>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </PanelCard>
@@ -215,19 +375,14 @@ export default function DashboardHomeClient({
             <PanelCard
               title={classesHeading}
               headerRight={
-                <Link
-                  href="/dashboard/classes"
-                  className="text-[13px] font-semibold text-accent hover:underline"
-                >
-                  All
-                </Link>
+                allClasses.length > CLASS_PREVIEW_COUNT ? (
+                  <span className="font-mono text-[12px] text-muted">
+                    {allClasses.length} classes
+                  </span>
+                ) : null
               }
             >
-              <div className="flex flex-col">
-                {previewClasses.map((cls) => (
-                  <ClassPreviewRow key={cls.id} cls={cls} />
-                ))}
-              </div>
+              <ClassesPreviewList classes={previewClasses} />
             </PanelCard>
           </div>
 
@@ -235,19 +390,17 @@ export default function DashboardHomeClient({
             title={homeworkHeading}
             className="mt-[18px]"
             headerRight={
-              <span className="font-mono text-[12px] text-muted">
-                {homeworkAttention.length} item{homeworkAttention.length === 1 ? "" : "s"}
-              </span>
+              previewHomework.length > 0 ? (
+                <span className="font-mono text-[12px] text-muted">
+                  {previewHomework.length} item{previewHomework.length === 1 ? "" : "s"}
+                </span>
+              ) : null
             }
           >
-            {homeworkAttention.length === 0 ? (
-              <p className="text-[14px] text-muted">No homework needs your attention right now.</p>
+            {previewHomework.length === 0 ? (
+              <p className="text-[14px] text-muted">No submissions need feedback right now.</p>
             ) : (
-              <div className="flex flex-col">
-                {homeworkAttention.map((item) => (
-                  <HomeworkRow key={item.id} item={item} />
-                ))}
-              </div>
+              <HomeworkPreviewList items={previewHomework} />
             )}
           </PanelCard>
         </>

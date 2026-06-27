@@ -57,6 +57,27 @@ export async function requireAuth() {
   return user;
 }
 
+/** Profile fields for the persistent dashboard shell. Deduped per request. */
+export const getShellUser = cache(async () => {
+  const user = await requireAuth();
+  const supabase = await getServerClient();
+  const { data: profile } = await supabase
+    .from("users")
+    .select("full_name")
+    .eq("id", user.id)
+    .single();
+
+  const fullName = profile?.full_name ?? "";
+  const initials = fullName
+    .split(" ")
+    .map((w: string) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  return { user, fullName, initials };
+});
+
 /** The current user's membership row for a class, or null. Deduped per request. */
 export const getClassMembership = cache(async (classId: string, userId: string) => {
   const supabase = await getServerClient();

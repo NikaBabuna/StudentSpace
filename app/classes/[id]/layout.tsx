@@ -12,6 +12,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { PageContainer } from "@/components/shell/page-container";
 import { Button } from "@/components/ui/button";
 import MembersButton from "@/features/classes/components/MembersButton";
+import RecordClassVisit from "@/features/classes/components/RecordClassVisit";
 
 export default async function ClassLayout({
   children,
@@ -105,6 +106,7 @@ export default async function ClassLayout({
       role={membership.role as "tutor" | "student" | "parent" | "employer"}
       breadcrumb={{ root: "Classes", leaf: cls.title }}
     >
+      <RecordClassVisit classId={id} />
       <PageContainer className="pb-16 pt-[34px]">
         <div className="mb-6 flex items-start justify-between gap-5">
           <div className="flex items-start gap-4">

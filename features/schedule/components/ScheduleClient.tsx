@@ -26,6 +26,7 @@ import {
   PlayIcon,
   TrashIcon,
   ScheduleIcon,
+  ChevronRightIcon,
 } from "@/components/icons";
 import {
   completeLesson,
@@ -39,8 +40,10 @@ import {
   deleteRecurringSchedule,
 } from "@/features/schedule/actions";
 import { AddLessonsDialog, type AddLessonsPayload } from "@/features/schedule/components/ScheduleLessonDialog";
+import { LessonOccurrenceDialog } from "@/features/schedule/components/LessonOccurrenceDialog";
 import {
   addTime,
+  collapseUpcoming,
   cycleBadgeTone,
   isMakeup,
   isRecurring,
@@ -48,6 +51,7 @@ import {
   lessonDateLine,
   lessonTime,
   needsMakeup,
+  recurrenceCadence,
   recurrenceSummary,
   statusBadge,
   type Cycle,
@@ -81,6 +85,8 @@ export default function ScheduleClient({
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [busyScheduleId, setBusyScheduleId] = useState<string | null>(null);
   const [confirmDeleteScheduleId, setConfirmDeleteScheduleId] = useState<string | null>(null);
+  const [occurrenceScheduleId, setOccurrenceScheduleId] = useState<string | null>(null);
+  const [occurrenceBusy, setOccurrenceBusy] = useState(false);
   const [showAllPast, setShowAllPast] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,6 +104,23 @@ export default function ScheduleClient({
     pa.sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime());
     return { upcoming: up, past: pa };
   }, [lessons, now]);
+
+  // Recurring slots collapse to one row each (their soonest upcoming hit); the
+  // full set of dates lives in the occurrence dialog. One-off lessons pass through.
+  const upcomingRows = useMemo(() => collapseUpcoming(upcoming), [upcoming]);
+  const schedulesById = useMemo(
+    () => new Map(schedules.map((s) => [s.id, s] as const)),
+    [schedules]
+  );
+
+  const occurrenceSchedule = occurrenceScheduleId ? schedulesById.get(occurrenceScheduleId) : null;
+  const occurrenceLessons = useMemo(
+    () =>
+      occurrenceScheduleId
+        ? lessons.filter((l) => l.recurring_schedule_id === occurrenceScheduleId)
+        : [],
+    [lessons, occurrenceScheduleId]
+  );
 
   const missedNeedingMakeup = lessons.filter((l) => needsMakeup(l, lessons));
   const nextLesson = upcoming[0];
@@ -162,6 +185,21 @@ export default function ScheduleClient({
     router.refresh();
   }
 
+  async function handleOccurrenceAction(
+    lessonId: string,
+    action: "completed" | "missed" | "cancelled"
+  ) {
+    setError(null);
+    setOccurrenceBusy(true);
+    let result: { error: string | null } | undefined;
+    if (action === "completed") result = await completeLesson(lessonId);
+    else if (action === "missed") result = await missLesson(lessonId);
+    else if (action === "cancelled") result = await cancelLesson(lessonId);
+    setOccurrenceBusy(false);
+    if (result?.error) return setError(result.error);
+    router.refresh();
+  }
+
   async function handleMarkPaid(cycleId: string) {
     setMarkingPaidId(cycleId);
     const { error: e } = await markCyclePaid(cycleId, classId);
@@ -201,21 +239,41 @@ export default function ScheduleClient({
     return parts.join(" · ");
   }
 
-  function SessionRow({ l }: { l: Lesson }) {
+  function SessionRow({
+    l,
+    collapsed = false,
+    upcomingCount = 0,
+  }: {
+    l: Lesson;
+    collapsed?: boolean;
+    upcomingCount?: number;
+  }) {
     const start = lessonTime(l);
     const end = addTime(start, l.duration_hours);
     const chip = statusBadge(l);
-    const expanded = expandedId === l.id;
+    const expanded = !collapsed && expandedId === l.id;
     const showMakeupDot = needsMakeup(l, lessons);
     const origLesson = l.replaces_lesson_id ? lessons.find((x) => x.id === l.replaces_lesson_id) : null;
     const makeupLesson = lessons.find((x) => x.replaces_lesson_id === l.id);
+
+    // A collapsed row represents a whole recurring slot: clicking opens its date
+    // map instead of toggling an inline panel.
+    const schedule = collapsed && l.recurring_schedule_id ? schedulesById.get(l.recurring_schedule_id) : null;
+    const subline = collapsed
+      ? `${schedule ? recurrenceCadence(schedule) : "Repeats weekly"} · ${upcomingCount} upcoming`
+      : lessonNote(l);
 
     return (
       <div className="border-t border-line first:border-t-0">
         <button
           type="button"
-          onClick={() => setExpandedId(expanded ? null : l.id)}
-          aria-expanded={expanded}
+          onClick={() =>
+            collapsed
+              ? l.recurring_schedule_id && setOccurrenceScheduleId(l.recurring_schedule_id)
+              : setExpandedId(expanded ? null : l.id)
+          }
+          aria-expanded={collapsed ? undefined : expanded}
+          aria-haspopup={collapsed ? "dialog" : undefined}
           className={cn(
             "flex w-full items-center gap-[18px] px-1 py-[15px] text-left transition-colors",
             expanded ? "bg-surface-2" : "hover:bg-surface-2/60"
@@ -238,11 +296,12 @@ export default function ScheduleClient({
                 <span className="size-1.5 shrink-0 rounded-full bg-accent" title="Needs makeup" />
               ) : null}
             </div>
-            <div className="text-[13px] text-ink-2">{lessonNote(l)}</div>
+            <div className="text-[13px] text-ink-2">{subline}</div>
           </div>
           <Badge tone={chip.tone} className="shrink-0 font-mono text-[11px] uppercase tracking-wide">
             {chip.label}
           </Badge>
+          {collapsed ? <ChevronRightIcon size={16} className="shrink-0 text-muted" /> : null}
         </button>
 
         {expanded ? (
@@ -342,9 +401,9 @@ export default function ScheduleClient({
         {/* Toolbar */}
         <div className="flex items-center justify-between gap-3">
           <p className="text-[14px] text-ink-2">
-            {upcoming.length > 0 ? (
+            {upcomingRows.length > 0 ? (
               <>
-                {upcoming.length} upcoming
+                {upcomingRows.length} upcoming
                 {nextLesson ? (
                   <span className="text-muted">
                     {" "}
@@ -391,14 +450,23 @@ export default function ScheduleClient({
               />
             ) : (
               <Card className="px-[22px] py-2">
-                {upcoming.length > 0 ? (
+                {upcomingRows.length > 0 ? (
                   <>
                     <div className="pb-1 pt-3 font-mono text-[11px] uppercase tracking-[0.08em] text-muted">
                       Upcoming
                     </div>
-                    {upcoming.map((l) => (
-                      <SessionRow key={l.id} l={l} />
-                    ))}
+                    {upcomingRows.map((row) =>
+                      row.kind === "recurring" ? (
+                        <SessionRow
+                          key={`r-${row.scheduleId}`}
+                          l={row.lesson}
+                          collapsed
+                          upcomingCount={row.upcomingCount}
+                        />
+                      ) : (
+                        <SessionRow key={row.lesson.id} l={row.lesson} />
+                      )
+                    )}
                   </>
                 ) : null}
 
@@ -472,9 +540,14 @@ export default function ScheduleClient({
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="text-[13px] font-medium text-ink">
+                            <button
+                              type="button"
+                              onClick={() => setOccurrenceScheduleId(s.id)}
+                              aria-haspopup="dialog"
+                              className="text-left text-[13px] font-medium text-ink hover:text-accent hover:underline"
+                            >
                               {recurrenceSummary(s)}
-                            </div>
+                            </button>
                             {!s.active ? (
                               <Badge tone="neutral" className="mt-1 text-[10px]">
                                 Paused
@@ -580,6 +653,19 @@ export default function ScheduleClient({
         missedNeedingMakeup={missedNeedingMakeup}
         initialMakeupForId={modalMakeupForId}
       />
+
+      {occurrenceSchedule ? (
+        <LessonOccurrenceDialog
+          key={occurrenceSchedule.id}
+          open={!!occurrenceScheduleId}
+          onClose={() => setOccurrenceScheduleId(null)}
+          schedule={occurrenceSchedule}
+          occurrences={occurrenceLessons}
+          isTutor={isTutor}
+          busy={occurrenceBusy}
+          onAction={handleOccurrenceAction}
+        />
+      ) : null}
     </>
   );
 }

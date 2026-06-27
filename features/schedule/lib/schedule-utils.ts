@@ -188,3 +188,99 @@ export function chipClass(selected: boolean) {
     ? "border-accent bg-accent-tint font-semibold text-accent"
     : "border-line-2 bg-surface-2 font-medium text-ink-2 hover:bg-surface-3";
 }
+
+/* -----------------------------------------------------------------------------
+ * Recurring collapse + occurrence-calendar helpers
+ * -----------------------------------------------------------------------------
+ * A weekly schedule materialises ~12 future lesson rows. Showing all of them in
+ * the Upcoming list buries everything else, so the list collapses each schedule
+ * to a single representative row (its soonest upcoming occurrence) and surfaces
+ * the full set of dates in the occurrence dialog instead.
+ * -------------------------------------------------------------------------- */
+
+/** A collapsed Upcoming row: a one-off lesson, or one recurring slot's next hit. */
+export type UpcomingRow =
+  | { kind: "single"; lesson: Lesson }
+  | { kind: "recurring"; lesson: Lesson; scheduleId: string; upcomingCount: number };
+
+/**
+ * Collapse already-sorted (ascending) upcoming lessons: each recurring schedule
+ * becomes one row keyed on its earliest upcoming occurrence; one-off lessons
+ * pass straight through. The result is re-sorted by date so recurring and
+ * one-off rows interleave naturally.
+ */
+export function collapseUpcoming(upcoming: Lesson[]): UpcomingRow[] {
+  const groups = new Map<string, Lesson[]>();
+  const rows: UpcomingRow[] = [];
+
+  for (const l of upcoming) {
+    if (l.recurring_schedule_id) {
+      const arr = groups.get(l.recurring_schedule_id);
+      if (arr) arr.push(l);
+      else groups.set(l.recurring_schedule_id, [l]);
+    } else {
+      rows.push({ kind: "single", lesson: l });
+    }
+  }
+
+  for (const [scheduleId, arr] of groups) {
+    arr.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+    rows.push({ kind: "recurring", lesson: arr[0], scheduleId, upcomingCount: arr.length });
+  }
+
+  rows.sort((a, b) => new Date(a.lesson.scheduled_at).getTime() - new Date(b.lesson.scheduled_at).getTime());
+  return rows;
+}
+
+/** Short cadence label for a collapsed row, e.g. "Mondays" / "Every 2 weeks". */
+export function recurrenceCadence(s: RecurringSchedule): string {
+  return s.interval_weeks > 1 ? `Every ${s.interval_weeks} weeks` : `${WEEKDAY_FULL[s.weekday]}s`;
+}
+
+/** Index lessons by local date key ("yyyy-mm-dd") for O(1) calendar lookups. */
+export function lessonsByDateKey(lessons: Lesson[]): Map<string, Lesson> {
+  const map = new Map<string, Lesson>();
+  for (const l of lessons) map.set(toDateKey(new Date(l.scheduled_at)), l);
+  return map;
+}
+
+/** Single-letter weekday headers, Monday-first (matches WEEKDAY_ORDER). */
+export const WEEKDAY_MIN = ["M", "T", "W", "T", "F", "S", "S"] as const;
+
+export interface MonthCell {
+  day: number;
+  dateKey: string;
+}
+
+/**
+ * A Monday-first month grid as rows of 7 cells; null = leading/trailing padding.
+ * Pure date math so the occurrence dialog can render any month it pages to.
+ */
+export function monthGrid(year: number, monthIndex: number): (MonthCell | null)[][] {
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const lead = (new Date(year, monthIndex, 1).getDay() + 6) % 7; // shift Sun-first -> Mon-first
+  const cells: (MonthCell | null)[] = [];
+
+  for (let i = 0; i < lead; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ day: d, dateKey: toDateKey(new Date(year, monthIndex, d)) });
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const weeks: (MonthCell | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  return weeks;
+}
+
+export function monthLabel(year: number, monthIndex: number): string {
+  return new Date(year, monthIndex, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+}
+
+/** Calendar cell style for a day that carries (or lacks) an occurrence. */
+export function occurrenceCellClass(lesson: Lesson | undefined): string {
+  if (!lesson) return "text-muted/60";
+  if (lesson.status === "completed") return "bg-ok-tint/60 font-semibold text-ok";
+  if (lesson.status === "missed") return "bg-danger-tint/60 font-semibold text-danger";
+  if (lesson.status === "cancelled") return "bg-surface-3 text-muted line-through";
+  return "border border-accent/50 font-semibold text-accent"; // scheduled / upcoming
+}

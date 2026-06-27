@@ -1,114 +1,46 @@
 /* =============================================================================
- * features/dashboard/components/AnalyticsClient.tsx — tutor analytics dashboard
- * -----------------------------------------------------------------------------
- * Role: Range-filtered charts and tables (week/month/year/all) for lessons,
- *       homework, earnings. Client-side aggregation from server-provided rows.
- * Dependencies: components/ui, recharts (if used), dashboard types
- * Used by: app/dashboard/analytics/page.tsx
- * Inputs: Lessons, homework, cycles, FX rates from server loader
- * Outputs: Tabbed analytics UI with date range selector
- * ========================================================================== */
+ * features/dashboard/components/AnalyticsClient.tsx — analytics dashboard
+ * ----------------------------------------------------------------------------- */
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 
 import { PageContainer, PageHeader } from "@/components/shell/page-container";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
 import { AnalyticsIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
+import {
+  rangeStart,
+  truncateLabel,
+  type AnalyticsRange,
+  type HomeworkChartRow,
+} from "@/features/dashboard/lib/analytics-aggregation";
+import { countStudentHomeworkSlots, countTutorHomeworkSlots } from "@/features/dashboard/lib/homework-stats";
+import type { AnalyticsPageData } from "@/features/dashboard/lib/load-analytics-data";
+import AnalyticsRangePicker from "@/features/dashboard/components/AnalyticsRangePicker";
+import {
+  AnalyticsChartCard,
+  HomeworkStackedChart,
+  PercentBarChart,
+  hwLegendStudent,
+  hwLegendTutor,
+  useChartTheme,
+} from "@/features/dashboard/components/analytics-charts";
+import EarningsAnalytics from "@/features/dashboard/components/EarningsAnalytics";
+import LessonActivityAnalytics from "@/features/dashboard/components/LessonActivityAnalytics";
 
 const DEFAULT_RATES: Record<string, number> = { GEL: 1, USD: 0.37, EUR: 0.34, RUB: 3.4 };
-const SYMS: Record<string, string> = { GEL: "₾", USD: "$", EUR: "€", RUB: "₽" };
 
-type Range = "week" | "month" | "year" | "all";
+type Range = AnalyticsRange;
 type Tab = "tutor" | "student" | "parent";
-type ChartTone = "ok" | "ok-muted" | "warn" | "danger" | "accent" | "muted";
-
-const CHART_BAR: Record<ChartTone, string> = {
-  ok: "bg-ok",
-  "ok-muted": "bg-ok/55",
-  warn: "bg-warn",
-  danger: "bg-danger",
-  accent: "bg-accent",
-  muted: "bg-line-2",
-};
-
-const HW_LEGEND_TUTOR = [
-  { tone: "ok" as ChartTone, label: "Feedback given" },
-  { tone: "ok-muted" as ChartTone, label: "Submitted" },
-  { tone: "warn" as ChartTone, label: "Pending" },
-  { tone: "danger" as ChartTone, label: "Past due" },
-];
-
-const HW_LEGEND_STUDENT = [
-  { tone: "ok" as ChartTone, label: "Feedback received" },
-  { tone: "ok-muted" as ChartTone, label: "Submitted" },
-  { tone: "warn" as ChartTone, label: "Pending" },
-  { tone: "danger" as ChartTone, label: "Missed" },
-];
-
-function rangeStart(r: Range): Date | null {
-  const now = new Date();
-  if (r === "week") return new Date(now.getTime() - 7 * 86400000);
-  if (r === "month") return new Date(now.getTime() - 30 * 86400000);
-  if (r === "year") return new Date(now.getTime() - 365 * 86400000);
-  return null;
-}
 
 function convert(amount: number, from: string, to: string, rates: Record<string, number>) {
   const gelAmount = from === "GEL" ? amount : amount / (rates[from] ?? 1);
   return to === "GEL" ? gelAmount : gelAmount * (rates[to] ?? 1);
-}
-
-function attendanceBarTone(pct: number): ChartTone {
-  if (pct >= 85) return "ok";
-  if (pct >= 70) return "warn";
-  return "danger";
-}
-
-function missedBarTone(pct: number): ChartTone {
-  if (pct === 0) return "ok";
-  if (pct <= 15) return "warn";
-  return "danger";
-}
-
-function AccordionCard({
-  title,
-  children,
-  defaultOpen = true,
-}: {
-  title: string;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <Card className="overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={cn(
-          "flex w-full items-center justify-between px-5 py-3.5 text-left transition-colors hover:bg-surface-2",
-          open && "border-b border-line"
-        )}
-      >
-        <span className="font-mono text-[11px] uppercase tracking-wider text-muted">{title}</span>
-        <span
-          className={cn("text-[13px] text-muted transition-transform", open && "rotate-90")}
-          aria-hidden
-        >
-          ›
-        </span>
-      </button>
-      {open ? <CardContent className="pt-4">{children}</CardContent> : null}
-    </Card>
-  );
 }
 
 function StatGrid({
@@ -122,7 +54,7 @@ function StatGrid({
   }[];
 }) {
   return (
-    <div className="mb-4 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
       {stats.map((s) => (
         <StatCard key={s.label} label={s.label} value={s.value} delta={s.delta} deltaTone={s.deltaTone} />
       ))}
@@ -130,83 +62,45 @@ function StatGrid({
   );
 }
 
-function BarChart({
-  data,
-  max,
-}: {
-  data: { label: string; value: number; tone?: ChartTone }[];
-  max: number;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      {data.map((d) => {
-        const pct = max > 0 ? (d.value / max) * 100 : 0;
-        return (
-          <div key={d.label} className="flex items-center gap-2">
-            <div className="w-[100px] shrink-0 truncate text-[11px] text-muted">{d.label}</div>
-            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-3">
-              <div
-                className={cn("h-full rounded-full", CHART_BAR[d.tone ?? "accent"])}
-                style={{ width: `${pct}%`, minWidth: pct > 0 ? 4 : 0 }}
-              />
-            </div>
-            <div className="min-w-[32px] shrink-0 text-right text-[11px] text-muted">
-              {typeof d.value === "number" && d.value % 1 !== 0 ? d.value.toFixed(1) : d.value}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+type ClassHwStats = {
+  id: string;
+  title: string;
+  withFeedback: number;
+  submitted: number;
+  pending: number;
+  overdue?: number;
+  missed?: number;
+  attendance: number;
+  missedRate?: number;
+};
+
+function toHomeworkRows(classes: ClassHwStats[]): HomeworkChartRow[] {
+  return classes.map((cls) => ({
+    name: truncateLabel(cls.title),
+    feedback: cls.withFeedback,
+    submitted: cls.submitted,
+    pending: cls.pending,
+    overdue: cls.overdue ?? cls.missed ?? 0,
+  }));
 }
 
-function StackedBar({
-  label,
-  segments,
-  total,
-}: {
-  label: string;
-  segments: { pct: number; tone: ChartTone }[];
-  total: number | string;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="w-[100px] shrink-0 truncate text-[11px] text-muted">{label}</div>
-      <div className="flex h-2.5 flex-1 overflow-hidden rounded-full bg-surface-3">
-        {segments.map((s, i) =>
-          s.pct > 0 ? (
-            <div
-              key={i}
-              className={cn("h-full", CHART_BAR[s.tone])}
-              style={{ width: `${s.pct}%`, minWidth: 2 }}
-            />
-          ) : null
-        )}
-      </div>
-      <div className="min-w-[32px] shrink-0 text-right text-[11px] text-muted">{total}</div>
-    </div>
-  );
-}
-
-function Legend({ items }: { items: { tone: ChartTone; label: string }[] }) {
-  return (
-    <div className="mt-3 flex flex-wrap gap-3">
-      {items.map((i) => (
-        <div key={i.label} className="flex items-center gap-1.5">
-          <div className={cn("size-2 shrink-0 rounded-sm", CHART_BAR[i.tone])} />
-          <div className="text-[10px] text-muted">{i.label}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ChildBlock({
+function ChildAnalytics({
   name,
-  stats,
+  lessons,
+  range,
   classStats,
+  stats,
 }: {
   name: string;
+  lessons: {
+    class_id: string;
+    scheduled_at: string;
+    status: string;
+    duration_hours?: number;
+    replaces_lesson_id?: string | null;
+  }[];
+  range: Range;
+  classStats: ClassHwStats[];
   stats: {
     concluded: number;
     attendance: number;
@@ -216,17 +110,9 @@ function ChildBlock({
     hwTotal: number;
     feedback: number;
   };
-  classStats: {
-    id: string;
-    title: string;
-    hwTotal: number;
-    withFeedback: number;
-    submitted: number;
-    pending: number;
-    missed: number;
-    attendance: number;
-  }[];
 }) {
+  const theme = useChartTheme();
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2.5">
@@ -253,61 +139,23 @@ function ChildBlock({
         ]}
       />
 
-      <AccordionCard title="Homework breakdown per class">
-        <div className="flex flex-col gap-2">
-          {classStats.map((cls) => (
-            <StackedBar
-              key={cls.id}
-              label={cls.title}
-              total={cls.hwTotal}
-              segments={[
-                { pct: (cls.withFeedback / cls.hwTotal) * 100, tone: "ok" },
-                { pct: (cls.submitted / cls.hwTotal) * 100, tone: "ok-muted" },
-                { pct: (cls.pending / cls.hwTotal) * 100, tone: "warn" },
-                { pct: (cls.missed / cls.hwTotal) * 100, tone: "danger" },
-              ]}
-            />
-          ))}
-        </div>
-        <Legend items={HW_LEGEND_STUDENT} />
-      </AccordionCard>
+      <AnalyticsChartCard
+        title="Lesson activity"
+        description="Completed hours over time — on time vs re-scheduled"
+      >
+        <LessonActivityAnalytics lessons={lessons} range={range} />
+      </AnalyticsChartCard>
 
-      <AccordionCard title="Attendance per class">
-        <BarChart
-          data={classStats.map((cls) => ({
-            label: cls.title,
-            value: cls.attendance,
-            tone: attendanceBarTone(cls.attendance),
-          }))}
-          max={100}
-        />
-      </AccordionCard>
-    </div>
-  );
-}
-
-function RangePicker({ range, onChange }: { range: Range; onChange: (r: Range) => void }) {
-  const ranges: { label: string; value: Range }[] = [
-    { label: "Week", value: "week" },
-    { label: "Month", value: "month" },
-    { label: "Year", value: "year" },
-    { label: "All time", value: "all" },
-  ];
-  return (
-    <div className="flex rounded-lg border border-line bg-surface-2 p-0.5">
-      {ranges.map((r) => (
-        <button
-          key={r.value}
-          type="button"
-          onClick={() => onChange(r.value)}
-          className={cn(
-            "rounded-md px-3 py-1 text-[11px] font-medium transition-colors",
-            range === r.value ? "bg-surface text-ink shadow-[var(--shadow-sm)]" : "text-muted hover:text-ink-2"
-          )}
-        >
-          {r.label}
-        </button>
-      ))}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <AnalyticsChartCard title="Homework by class" description="Stacked assignment status">
+          <HomeworkStackedChart data={toHomeworkRows(classStats)} legend={hwLegendStudent(theme)} />
+        </AnalyticsChartCard>
+        <AnalyticsChartCard title="Attendance by class" description="Completed vs concluded lessons">
+          <PercentBarChart
+            data={classStats.map((c) => ({ name: truncateLabel(c.title), value: c.attendance }))}
+          />
+        </AnalyticsChartCard>
+      </div>
     </div>
   );
 }
@@ -322,32 +170,8 @@ export default function AnalyticsClient({
   submissions,
   cycles,
   classMembers,
-}: {
-  userId: string;
-  tutorClasses: { id: string; title: string; cycle_hours?: number }[];
-  studentClasses: { id: string; title: string }[];
-  parentChildren: { id: string; full_name: string; sharedClassIds: string[] }[];
-  lessons: {
-    id: string;
-    class_id: string;
-    duration_hours?: number;
-    status: string;
-    scheduled_at: string;
-    payment_cycle_id?: string | null;
-  }[];
-  homework: { id: string; class_id: string; deadline: string }[];
-  submissions: { id: string; homework_id: string; student_id: string; grade: string | null }[];
-  cycles: {
-    id: string;
-    class_id: string;
-    cycle_number: number;
-    closed_at: string | null;
-    paid_at: string | null;
-    payment_amount: number | null;
-    payment_currency: string | null;
-  }[];
-  classMembers: { class_id: string; user_id: string; role: string }[];
-}) {
+}: AnalyticsPageData) {
+  const theme = useChartTheme();
   const defaultTab: Tab =
     tutorClasses.length > 0 ? "tutor" : studentClasses.length > 0 ? "student" : parentChildren.length > 0 ? "parent" : "tutor";
   const [tab, setTab] = useState<Tab>(defaultTab);
@@ -407,29 +231,13 @@ export default function AnalyticsClient({
     const ch = tHw.filter((h) => h.class_id === cls.id);
     const chIds = ch.map((h) => h.id);
     const cs = tSubs.filter((s) => chIds.includes(s.homework_id));
-    const students = classMembers.filter((m) => m.class_id === cls.id && m.role === "student");
-    const total = students.length;
+    const studentIds = classMembers
+      .filter((m) => m.class_id === cls.id && m.role === "student")
+      .map((m) => m.user_id);
     const comp = cl.filter((l) => l.status === "completed").length;
     const miss = cl.filter((l) => l.status === "missed").length;
     const concluded = comp + miss;
-    const withFeedback = cs.filter((s) => s.grade).length;
-    const submitted = cs.filter((s) => !s.grade).length;
-    const isPast = (h: { deadline: string }) => new Date(h.deadline) < now;
-    const overdue = ch.filter((h) => isPast(h) && !cs.some((s) => s.homework_id === h.id)).length;
-    const pending = ch.filter((h) => !isPast(h) && !cs.some((s) => s.homework_id === h.id)).length;
-    const hwTotal = total * ch.length || 1;
-    const cls_cycles = cycles.filter((c) => c.class_id === cls.id);
-    const openCycle = cls_cycles.find((c) => !c.closed_at);
-    const cycleHours = openCycle
-      ? lessons
-          .filter(
-            (l) =>
-              l.class_id === cls.id &&
-              l.payment_cycle_id === openCycle.id &&
-              l.status === "completed"
-          )
-          .reduce((s, l) => s + (l.duration_hours ?? 0), 0)
-      : 0;
+    const hwStats = countTutorHomeworkSlots(ch, studentIds, cs, now);
     return {
       id: cls.id,
       title: cls.title,
@@ -437,40 +245,15 @@ export default function AnalyticsClient({
       miss,
       concluded,
       missedRate: concluded > 0 ? Math.round((miss / concluded) * 100) : 0,
-      attendance: total > 0 && concluded > 0 ? Math.round((comp / concluded) * 100) : 0,
-      withFeedback,
-      submitted,
-      overdue,
-      pending,
-      hwTotal,
-      cycleHours,
-      cycleTarget: cls.cycle_hours ?? 8,
+      attendance: concluded > 0 ? Math.round((comp / concluded) * 100) : 0,
+      ...hwStats,
     };
   });
 
-  const earningsRows = cycles.map((c) => {
-    const cls = tutorClasses.find((t) => t.id === c.class_id);
-    const amt = c.payment_amount ?? 0;
-    const cur = c.payment_currency ?? "GEL";
-    const converted = convert(amt, cur, currency, rates);
-    return {
-      classTitle: cls?.title ?? "Unknown",
-      cycle: c.cycle_number,
-      native: amt,
-      nativeCur: cur,
-      converted,
-      status: c.paid_at ? "paid" : c.closed_at ? "closed" : "progress",
-      hours: lessons
-        .filter((l) => l.class_id === c.class_id && l.payment_cycle_id === c.id && l.status === "completed")
-        .reduce((s, l) => s + (l.duration_hours ?? 0), 0),
-    };
-  });
-
-  const sym = SYMS[currency];
-  const totalEarned = earningsRows.filter((r) => r.status === "paid").reduce((s, r) => s + r.converted, 0);
-  const inProgress = earningsRows.filter((r) => r.status === "progress").reduce((s, r) => s + r.converted, 0);
-  const totalHoursForRate = earningsRows.filter((r) => r.status === "paid").reduce((s, r) => s + r.hours, 0);
-  const hourlyRate = totalHoursForRate > 0 ? (totalEarned / totalHoursForRate).toFixed(1) : "—";
+  const convertAmount = useCallback(
+    (amount: number, from: string) => convert(amount, from, currency, rates),
+    [currency, rates]
+  );
 
   const studentClassIds = studentClasses.map((c) => c.id);
   const sLessons = lessons.filter((l) => studentClassIds.includes(l.class_id) && inRange(l.scheduled_at));
@@ -496,21 +279,16 @@ export default function AnalyticsClient({
     const comp = cl.filter((l) => l.status === "completed").length;
     const miss = cl.filter((l) => l.status === "missed").length;
     const concluded = comp + miss;
-    const withFeedback = cs.filter((s) => s.grade).length;
-    const submitted = cs.filter((s) => !s.grade).length;
-    const isPast = (h: { deadline: string }) => new Date(h.deadline) < now;
-    const missed = ch.filter((h) => isPast(h) && !cs.some((s) => s.homework_id === h.id)).length;
-    const pending = ch.filter((h) => !isPast(h) && !cs.some((s) => s.homework_id === h.id)).length;
-    const hwTotal = ch.length || 1;
+    const hwStats = countStudentHomeworkSlots(ch, userId, cs, now);
     return {
       id: cls.id,
       title: cls.title,
       attendance: concluded > 0 ? Math.round((comp / concluded) * 100) : 0,
-      withFeedback,
-      submitted,
-      missed,
-      pending,
-      hwTotal,
+      withFeedback: hwStats.withFeedback,
+      submitted: hwStats.submitted,
+      missed: hwStats.overdue,
+      pending: hwStats.pending,
+      hwTotal: ch.length || 1,
     };
   });
 
@@ -541,15 +319,15 @@ export default function AnalyticsClient({
       const c = cl.filter((l) => l.status === "completed").length;
       const m = cl.filter((l) => l.status === "missed").length;
       const conc = c + m;
-      const isPast = (h: { deadline: string }) => new Date(h.deadline) < now;
+      const hwStats = countStudentHomeworkSlots(ch, child.id, cs, now);
       return {
         id: clsId,
         title: cls.title,
         attendance: conc > 0 ? Math.round((c / conc) * 100) : 0,
-        withFeedback: cs.filter((s) => s.grade).length,
-        submitted: cs.filter((s) => !s.grade).length,
-        missed: ch.filter((h) => isPast(h) && !cs.some((s) => s.homework_id === h.id)).length,
-        pending: ch.filter((h) => !isPast(h) && !cs.some((s) => s.homework_id === h.id)).length,
+        withFeedback: hwStats.withFeedback,
+        submitted: hwStats.submitted,
+        missed: hwStats.overdue,
+        pending: hwStats.pending,
         hwTotal: ch.length || 1,
       };
     });
@@ -557,6 +335,7 @@ export default function AnalyticsClient({
     return {
       id: child.id,
       name: child.full_name,
+      lessons: cLessons,
       stats: { comp, miss, concluded, hours, hwDone, feedback, attendance, hwTotal: cHw.length },
       classStats,
     };
@@ -568,18 +347,12 @@ export default function AnalyticsClient({
     parent: "Your children's progress in shared classes",
   };
 
-  const earningsStatusTone = (status: string) => {
-    if (status === "paid") return "ok" as const;
-    if (status === "closed") return "neutral" as const;
-    return "warn" as const;
-  };
-
   return (
     <PageContainer>
       <PageHeader
         title="Analytics"
         sub={tabSubtitle[tab]}
-        action={<RangePicker range={range} onChange={setRange} />}
+        action={<AnalyticsRangePicker range={range} onChange={setRange} />}
       />
 
       {tabs.length > 0 ? (
@@ -620,145 +393,52 @@ export default function AnalyticsClient({
                 ]}
               />
 
-              <AccordionCard title="Homework completion per class">
-                <div className="flex flex-col gap-2">
-                  {tutorClassStats.map((cls) => {
-                    const t = cls.hwTotal;
-                    return (
-                      <StackedBar
-                        key={cls.id}
-                        label={cls.title}
-                        total={t}
-                        segments={[
-                          { pct: t > 0 ? (cls.withFeedback / t) * 100 : 0, tone: "ok" },
-                          { pct: t > 0 ? (cls.submitted / t) * 100 : 0, tone: "ok-muted" },
-                          { pct: t > 0 ? (cls.pending / t) * 100 : 0, tone: "warn" },
-                          { pct: t > 0 ? (cls.overdue / t) * 100 : 0, tone: "danger" },
-                        ]}
-                      />
-                    );
-                  })}
-                </div>
-                <Legend items={HW_LEGEND_TUTOR} />
-              </AccordionCard>
+              <AnalyticsChartCard
+                title="Lesson activity"
+                description="Completed hours over time — on time vs re-scheduled"
+              >
+                <LessonActivityAnalytics lessons={tLessons} range={range} />
+              </AnalyticsChartCard>
 
-              <AccordionCard title="Mean attendance per class">
-                <BarChart
-                  data={tutorClassStats.map((cls) => ({
-                    label: cls.title,
-                    value: cls.attendance,
-                    tone: attendanceBarTone(cls.attendance),
-                  }))}
-                  max={100}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <AnalyticsChartCard title="Attendance by class" description="Share of concluded lessons completed">
+                  <PercentBarChart
+                    data={tutorClassStats.map((c) => ({
+                      name: truncateLabel(c.title),
+                      value: c.attendance,
+                    }))}
+                  />
+                </AnalyticsChartCard>
+                <AnalyticsChartCard title="Missed lesson rate" description="Missed as % of concluded lessons">
+                  <PercentBarChart
+                    invert
+                    data={tutorClassStats.map((c) => ({
+                      name: truncateLabel(c.title),
+                      value: c.missedRate,
+                    }))}
+                  />
+                </AnalyticsChartCard>
+              </div>
+
+              <AnalyticsChartCard
+                title="Homework completion by class"
+                description="Assignment slots across all students — stacked by status"
+              >
+                <HomeworkStackedChart
+                  data={toHomeworkRows(tutorClassStats)}
+                  legend={hwLegendTutor(theme)}
                 />
-              </AccordionCard>
+              </AnalyticsChartCard>
 
-              <AccordionCard title="Missed lesson % per class">
-                <BarChart
-                  data={tutorClassStats.map((cls) => ({
-                    label: cls.title,
-                    value: cls.missedRate,
-                    tone: missedBarTone(cls.missedRate),
-                  }))}
-                  max={100}
-                />
-              </AccordionCard>
-
-              <AccordionCard title="Payment cycle hours per class">
-                <div className="flex flex-col gap-2">
-                  {tutorClassStats.map((cls) => (
-                    <StackedBar
-                      key={cls.id}
-                      label={cls.title}
-                      total={`${cls.cycleHours}/${cls.cycleTarget}h`}
-                      segments={[
-                        {
-                          pct: Math.min((cls.cycleHours / cls.cycleTarget) * 100, 100),
-                          tone: "accent",
-                        },
-                        {
-                          pct: Math.max(((cls.cycleTarget - cls.cycleHours) / cls.cycleTarget) * 100, 0),
-                          tone: "muted",
-                        },
-                      ]}
-                    />
-                  ))}
-                </div>
-                <Legend
-                  items={[
-                    { tone: "accent", label: "Completed" },
-                    { tone: "muted", label: "Remaining" },
-                  ]}
-                />
-              </AccordionCard>
-
-              <AccordionCard title="Earnings">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <span className="text-[12px] text-muted">Display currency</span>
-                  <select
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
-                    className="h-9 rounded-xl border border-line-2 bg-surface px-3 text-[12px] text-ink outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30"
-                  >
-                    <option value="GEL">GEL — Georgian Lari</option>
-                    <option value="USD">USD — US Dollar</option>
-                    <option value="EUR">EUR — Euro</option>
-                    <option value="RUB">RUB — Russian Ruble</option>
-                  </select>
-                  {ratesLive ? <span className="text-[11px] text-ok">Live exchange rates</span> : null}
-                </div>
-
-                <div className="overflow-hidden rounded-xl border border-line">
-                  <div className="grid grid-cols-[1fr_60px_80px_80px_80px] border-b border-line bg-surface-2 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted">
-                    <div>Class</div>
-                    <div>Cycle</div>
-                    <div>Native</div>
-                    <div>Converted</div>
-                    <div>Status</div>
-                  </div>
-                  {earningsRows.length === 0 ? (
-                    <div className="px-3 py-3 text-[13px] text-muted">No payment cycles yet.</div>
-                  ) : (
-                    earningsRows.map((r, i) => (
-                      <div
-                        key={i}
-                        className={cn(
-                          "grid grid-cols-[1fr_60px_80px_80px_80px] items-center px-3 py-2.5",
-                          i < earningsRows.length - 1 && "border-b border-line"
-                        )}
-                      >
-                        <div className="truncate text-[13px] font-medium text-ink">{r.classTitle}</div>
-                        <div className="text-[12px] text-muted">#{r.cycle}</div>
-                        <div className="text-[12px] text-ink-2">
-                          {r.native} {r.nativeCur}
-                        </div>
-                        <div className="text-[12px] font-medium text-accent">
-                          {sym}
-                          {Math.round(r.converted)}
-                        </div>
-                        <div>
-                          <Badge tone={earningsStatusTone(r.status)} className="text-[10px] capitalize">
-                            {r.status === "paid" ? "Paid" : r.status === "closed" ? "Closed" : "In progress"}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-4 border-t border-line pt-4 sm:grid-cols-3">
-                  {[
-                    { label: "Total earned", value: `${sym}${Math.round(totalEarned)}` },
-                    { label: "In progress (projected)", value: `${sym}${Math.round(inProgress)}`, warn: true },
-                    { label: "Mean hourly rate", value: hourlyRate !== "—" ? `${sym}${hourlyRate}/h` : "—" },
-                  ].map((s) => (
-                    <div key={s.label}>
-                      <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-muted">{s.label}</div>
-                      <div className={cn("font-serif text-[22px] text-ink", s.warn && "text-warn")}>{s.value}</div>
-                    </div>
-                  ))}
-                </div>
-              </AccordionCard>
+              <EarningsAnalytics
+                tutorClasses={tutorClasses}
+                cycles={cycles}
+                lessons={lessons}
+                currency={currency}
+                onCurrencyChange={setCurrency}
+                ratesLive={ratesLive}
+                convert={convertAmount}
+              />
             </>
           ))}
 
@@ -782,34 +462,30 @@ export default function AnalyticsClient({
                 },
               ]}
             />
-            <AccordionCard title="Homework breakdown per class">
-              <div className="flex flex-col gap-2">
-                {studentClassStats.map((cls) => (
-                  <StackedBar
-                    key={cls.id}
-                    label={cls.title}
-                    total={cls.hwTotal}
-                    segments={[
-                      { pct: (cls.withFeedback / cls.hwTotal) * 100, tone: "ok" },
-                      { pct: (cls.submitted / cls.hwTotal) * 100, tone: "ok-muted" },
-                      { pct: (cls.pending / cls.hwTotal) * 100, tone: "warn" },
-                      { pct: (cls.missed / cls.hwTotal) * 100, tone: "danger" },
-                    ]}
-                  />
-                ))}
-              </div>
-              <Legend items={HW_LEGEND_STUDENT} />
-            </AccordionCard>
-            <AccordionCard title="Attendance per class">
-              <BarChart
-                data={studentClassStats.map((cls) => ({
-                  label: cls.title,
-                  value: cls.attendance,
-                  tone: attendanceBarTone(cls.attendance),
-                }))}
-                max={100}
-              />
-            </AccordionCard>
+
+            <AnalyticsChartCard
+              title="Your lesson activity"
+              description="Completed hours over time — on time vs re-scheduled"
+            >
+              <LessonActivityAnalytics lessons={sLessons} range={range} />
+            </AnalyticsChartCard>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <AnalyticsChartCard title="Homework by class" description="Your assignment status per class">
+                <HomeworkStackedChart
+                  data={toHomeworkRows(studentClassStats)}
+                  legend={hwLegendStudent(theme)}
+                />
+              </AnalyticsChartCard>
+              <AnalyticsChartCard title="Attendance by class" description="Completed vs concluded lessons">
+                <PercentBarChart
+                  data={studentClassStats.map((c) => ({
+                    name: truncateLabel(c.title),
+                    value: c.attendance,
+                  }))}
+                />
+              </AnalyticsChartCard>
+            </div>
           </>
         )}
 
@@ -833,7 +509,13 @@ export default function AnalyticsClient({
               {childrenStats.map((child, i) => (
                 <div key={child.id}>
                   {i > 0 ? <div className="mb-10 border-t border-line" /> : null}
-                  <ChildBlock name={child.name} stats={child.stats} classStats={child.classStats} />
+                  <ChildAnalytics
+                    name={child.name}
+                    lessons={child.lessons}
+                    range={range}
+                    classStats={child.classStats}
+                    stats={child.stats}
+                  />
                 </div>
               ))}
             </div>

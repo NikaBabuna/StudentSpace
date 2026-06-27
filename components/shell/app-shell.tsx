@@ -17,17 +17,21 @@
 import * as React from "react";
 
 import { Sidebar, type SidebarProps } from "./sidebar";
+import { ShellTopbar } from "./shell-topbar";
 import { Topbar, type Breadcrumb } from "./topbar";
 
 type AppShellProps = SidebarProps & {
   children: React.ReactNode;
   breadcrumb?: Breadcrumb;
+  /** When true, breadcrumb is derived from the current pathname (dashboard shell layout). */
+  autoBreadcrumb?: boolean;
   topbarActions?: React.ReactNode;
 };
 
 export function AppShell({
   children,
   breadcrumb,
+  autoBreadcrumb,
   topbarActions,
   ...sidebar
 }: AppShellProps) {
@@ -35,7 +39,11 @@ export function AppShell({
     <div className="grid min-h-screen grid-cols-[248px_1fr] bg-bg">
       <Sidebar {...sidebar} />
       <div className="flex min-h-screen min-w-0 flex-col">
-        <Topbar breadcrumb={breadcrumb} actions={topbarActions} />
+        {autoBreadcrumb ? (
+          <ShellTopbar actions={topbarActions} />
+        ) : (
+          <Topbar breadcrumb={breadcrumb} actions={topbarActions} />
+        )}
         <main className="min-w-0 flex-1">{children}</main>
       </div>
     </div>

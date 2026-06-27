@@ -136,6 +136,52 @@ export async function deleteLesson(lessonId: string): Promise<Result> {
   return { error: error?.message ?? null };
 }
 
+/**
+ * Move and/or resize a single lesson (calendar drag-drop and the edit form).
+ * Only `scheduled` lessons can be changed — completed/missed rows are history and
+ * may be tied to a payment cycle. Editing one occurrence detaches it from its
+ * recurring pattern (recurring_schedule_id → null) so the series generator/clear
+ * never clobbers the customised lesson; the watermark guarantees no duplicate is
+ * regenerated for the vacated slot.
+ */
+export async function updateLesson(input: {
+  lessonId: string;
+  scheduledAt?: string; // ISO string
+  durationHours?: number;
+}): Promise<Result> {
+  const ctx = await getTutorContext(input.lessonId);
+  if (ctx.error) return { error: ctx.error };
+  const { supabase, lesson } = ctx;
+
+  if (lesson!.status !== "scheduled") {
+    return { error: "Only upcoming lessons can be moved or resized." };
+  }
+
+  const patch: {
+    scheduled_at?: string;
+    duration_hours?: number;
+    recurring_schedule_id?: null;
+  } = {};
+
+  if (input.scheduledAt !== undefined) {
+    const at = new Date(input.scheduledAt);
+    if (Number.isNaN(at.getTime())) return { error: "Invalid date or time." };
+    patch.scheduled_at = at.toISOString();
+  }
+  if (input.durationHours !== undefined) {
+    if (!(input.durationHours > 0)) return { error: "Duration must be greater than 0." };
+    patch.duration_hours = input.durationHours;
+  }
+  if (patch.scheduled_at === undefined && patch.duration_hours === undefined) {
+    return { error: null }; // nothing to change
+  }
+
+  patch.recurring_schedule_id = null; // a hand-edited occurrence is now a one-off
+
+  const { error } = await supabase.from("lessons").update(patch).eq("id", input.lessonId);
+  return { error: error?.message ?? null };
+}
+
 export async function scheduleLesson(input: {
   classId: string;
   scheduledAt: string;

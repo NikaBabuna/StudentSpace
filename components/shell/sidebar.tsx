@@ -74,6 +74,7 @@ export interface SidebarProps {
 const dashboardNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: DashboardIcon, exact: true },
   { label: "My classes", href: "/dashboard/classes", icon: ClassesIcon },
+  { label: "Calendar", href: "/calendar", icon: ScheduleIcon },
   { label: "Analytics", href: "/dashboard/analytics", icon: AnalyticsIcon },
   { label: "Inbox", href: "/inbox", icon: InboxIcon },
 ];

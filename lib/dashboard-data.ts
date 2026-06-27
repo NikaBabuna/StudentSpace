@@ -2,7 +2,7 @@
  * lib/dashboard-data.ts — dashboard home page data loader
  * -----------------------------------------------------------------------------
  * Role: Batches all Supabase queries needed for /dashboard: user profile,
- *       class list with counts, today’s sessions, homework needing attention,
+ *       class list with counts, upcoming lessons, homework needing attention,
  *       and stat cards. Redirects employers to /employer.
  * Dependencies: lib/auth, lib/dashboard-stats, next/navigation
  * Used by: app/dashboard/page.tsx
@@ -42,10 +42,11 @@ export type DashboardClassRow = {
   nextSession: string | null;
 };
 
-export type TodaySessionRow = {
+export type UpcomingSessionRow = {
   id: string;
   classId: string;
   time: string;
+  when: string;
   duration: string;
   title: string;
   sub: string;
@@ -78,7 +79,8 @@ export type DashboardData = {
   teaching: DashboardClassRow[];
   attending: DashboardClassRow[];
   observing: DashboardClassRow[];
-  todaySessions: TodaySessionRow[];
+  todaySessions: UpcomingSessionRow[];
+  upcomingSessions: UpcomingSessionRow[];
   homeworkAttention: HomeworkAttentionRow[];
   classesHeading: string;
   homeworkHeading: string;
@@ -128,11 +130,40 @@ function daysUntil(deadline: Date, now: Date) {
   return Math.round((a.getTime() - b.getTime()) / 86400000);
 }
 
-function buildTodaySessions(
-  lessons: { id: string; class_id: string; scheduled_at: string; duration_hours: number; status: string }[],
+type LessonRow = {
+  id: string;
+  class_id: string;
+  scheduled_at: string;
+  duration_hours: number;
+  status: string;
+};
+
+function lessonToSessionRow(
+  l: LessonRow,
   classMap: Map<string, { title: string; subject?: string | null; level?: string | null }>,
   now: Date
-): TodaySessionRow[] {
+): UpcomingSessionRow {
+  const cls = classMap.get(l.class_id);
+  const at = new Date(l.scheduled_at);
+  const meta = [cls?.subject, cls?.level].filter(Boolean).join(" · ");
+  return {
+    id: l.id,
+    classId: l.class_id,
+    time: formatTime(at),
+    when: formatNextSession(at, now),
+    duration: formatDurationHours(l.duration_hours ?? 1),
+    title: cls?.title ?? "Class session",
+    sub: meta || "Scheduled lesson",
+    kind: "Live session",
+    tagTone: "accent" as const,
+  };
+}
+
+function buildTodaySessions(
+  lessons: LessonRow[],
+  classMap: Map<string, { title: string; subject?: string | null; level?: string | null }>,
+  now: Date
+): UpcomingSessionRow[] {
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
   const end = new Date(now);
@@ -145,28 +176,39 @@ function buildTodaySessions(
       return at >= start && at <= end;
     })
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
-    .map((l) => {
-      const cls = classMap.get(l.class_id);
-      const at = new Date(l.scheduled_at);
-      const meta = [cls?.subject, cls?.level].filter(Boolean).join(" · ");
-      return {
-        id: l.id,
-        classId: l.class_id,
-        time: formatTime(at),
-        duration: formatDurationHours(l.duration_hours ?? 1),
-        title: cls?.title ?? "Class session",
-        sub: meta || "Scheduled lesson",
-        kind: "Live session",
-        tagTone: "accent" as const,
-      };
-    });
+    .map((l) => lessonToSessionRow(l, classMap, now));
+}
+
+function buildUpcomingByClass(
+  lessons: LessonRow[],
+  classIds: string[],
+  classMap: Map<string, { title: string; subject?: string | null; level?: string | null }>,
+  now: Date
+): UpcomingSessionRow[] {
+  const classIdSet = new Set(classIds);
+  const nearestByClass = new Map<string, LessonRow>();
+
+  for (const lesson of lessons) {
+    if (lesson.status !== "scheduled") continue;
+    if (!classIdSet.has(lesson.class_id)) continue;
+    const at = new Date(lesson.scheduled_at);
+    if (at < now) continue;
+
+    const prev = nearestByClass.get(lesson.class_id);
+    if (!prev || at < new Date(prev.scheduled_at)) {
+      nearestByClass.set(lesson.class_id, lesson);
+    }
+  }
+
+  return Array.from(nearestByClass.values())
+    .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+    .map((l) => lessonToSessionRow(l, classMap, now));
 }
 
 function buildHomeworkAttention({
   homework,
   submissions,
   classMap,
-  studentCountMap,
   teachingClassIds,
   attendingClassIds,
   observingClassIds,
@@ -176,7 +218,6 @@ function buildHomeworkAttention({
   homework: { id: string; class_id: string; title: string; deadline: string }[];
   submissions: { homework_id: string; student_id: string; grade: string | null }[];
   classMap: Map<string, { title: string; id: string }>;
-  studentCountMap: Record<string, number>;
   teachingClassIds: string[];
   attendingClassIds: string[];
   observingClassIds: string[];
@@ -200,72 +241,44 @@ function buildHomeworkAttention({
     const dayDiff = daysUntil(deadline, now);
 
     if (isTutor) {
-      const totalStudents = studentCountMap[hw.class_id] ?? 0;
-      const submittedCount = new Set(hwSubs.map((s) => s.student_id)).size;
       const ungraded = hwSubs.filter((s) => !s.grade).length;
-      const gradedCount = hwSubs.filter((s) => s.grade).length;
+      if (ungraded === 0) continue;
 
       let due: string;
       let dueTone: "warn" | "ok" | "neutral";
-      if (past && gradedCount > 0 && ungraded === 0) {
-        due = "Closed";
-        dueTone = "ok";
-      } else if (dayDiff === 0) {
+      if (dayDiff === 0) {
         due = "Due today";
+        dueTone = "warn";
+      } else if (past) {
+        due = `Due ${deadline.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
         dueTone = "warn";
       } else if (dayDiff > 0 && dayDiff <= 7) {
         due = `Due in ${dayDiff} day${dayDiff === 1 ? "" : "s"}`;
         dueTone = "neutral";
-      } else if (past) {
-        due = `Closed ${deadline.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
-        dueTone = "ok";
       } else {
         due = deadline.toLocaleDateString(undefined, { month: "short", day: "numeric" });
         dueTone = "neutral";
       }
-
-      let cta: string;
-      let ctaVariant: "primary" | "secondary";
-      if (ungraded > 0) {
-        cta = "Grade";
-        ctaVariant = "primary";
-      } else if (past && gradedCount > 0) {
-        cta = "Review";
-        ctaVariant = "secondary";
-      } else {
-        cta = "Open";
-        ctaVariant = "secondary";
-      }
-
-      const sub =
-        totalStudents > 0
-          ? `${submittedCount} / ${totalStudents} submitted`
-          : submittedCount > 0
-            ? `${submittedCount} submitted`
-            : "No submissions yet";
 
       rows.push({
         id: hw.id,
         classId: hw.class_id,
         title: hw.title,
         classTitle: cls.title,
-        sub,
+        sub: `${ungraded} submission${ungraded === 1 ? "" : "s"} to grade`,
         due,
         dueTone,
-        cta,
-        ctaVariant,
+        cta: "Grade",
+        ctaVariant: "primary",
         dotColor: classDotColor(hw.class_id),
       });
     } else {
-      const mine = hwSubs.some((s) => s.student_id === userId);
-      const myGrade = hwSubs.find((s) => s.student_id === userId)?.grade;
+      const mine = hwSubs.find((s) => s.student_id === userId);
+      if (!mine || mine.grade) continue;
 
       let due: string;
       let dueTone: "warn" | "ok" | "neutral";
-      if (myGrade) {
-        due = "Graded";
-        dueTone = "ok";
-      } else if (past) {
+      if (past) {
         due = "Past due";
         dueTone = "warn";
       } else if (dayDiff === 0) {
@@ -279,42 +292,27 @@ function buildHomeworkAttention({
         dueTone = "neutral";
       }
 
-      let cta: string;
-      let ctaVariant: "primary" | "secondary";
-      if (myGrade) {
-        cta = "Review";
-        ctaVariant = "secondary";
-      } else if (!mine && !past) {
-        cta = "Submit";
-        ctaVariant = "primary";
-      } else {
-        cta = "Open";
-        ctaVariant = "secondary";
-      }
-
       rows.push({
         id: hw.id,
         classId: hw.class_id,
         title: hw.title,
         classTitle: cls.title,
-        sub: mine ? (myGrade ? "Feedback received" : "Submitted — awaiting feedback") : "Not submitted",
+        sub: "Submitted — awaiting feedback",
         due,
         dueTone,
-        cta,
-        ctaVariant,
+        cta: "Open",
+        ctaVariant: "secondary",
         dotColor: classDotColor(hw.class_id),
       });
     }
   }
 
-  return rows
-    .sort((a, b) => {
-      const toneRank = { warn: 0, neutral: 1, ok: 2 };
-      const diff = toneRank[a.dueTone] - toneRank[b.dueTone];
-      if (diff !== 0) return diff;
-      return a.title.localeCompare(b.title);
-    })
-    .slice(0, 6);
+  return rows.sort((a, b) => {
+    const toneRank = { warn: 0, neutral: 1, ok: 2 };
+    const diff = toneRank[a.dueTone] - toneRank[b.dueTone];
+    if (diff !== 0) return diff;
+    return a.title.localeCompare(b.title);
+  });
 }
 
 export async function loadDashboardData(): Promise<DashboardData> {
@@ -454,12 +452,12 @@ export async function loadDashboardData(): Promise<DashboardData> {
   });
 
   const todaySessions = buildTodaySessions(allLessons ?? [], classMap, now);
+  const upcomingSessions = buildUpcomingByClass(allLessons ?? [], classIds, classMap, now);
 
   const homeworkAttention = buildHomeworkAttention({
     homework: homeworkRows ?? [],
     submissions: allSubmissions ?? [],
     classMap,
-    studentCountMap,
     teachingClassIds,
     attendingClassIds,
     observingClassIds,
@@ -489,9 +487,10 @@ export async function loadDashboardData(): Promise<DashboardData> {
     attending,
     observing,
     todaySessions,
+    upcomingSessions,
     homeworkAttention,
     classesHeading: isTutor ? "Your classes" : "My classes",
-    homeworkHeading: isTutor ? "Homework that needs you" : "Your homework",
+    homeworkHeading: isTutor ? "Needs feedback" : "Awaiting feedback",
     isTutor,
   };
 }

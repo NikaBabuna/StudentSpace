@@ -295,6 +295,32 @@
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+
+  /* Recharts SVG wrappers are focusable on click — suppress the default ring. */
+  .recharts-wrapper,
+  .recharts-wrapper:focus,
+  .recharts-wrapper:focus-visible,
+  .recharts-surface:focus,
+  .recharts-surface:focus-visible {
+    outline: none !important;
+  }
+
+  /* Hover band on charts — opaque fill, solid accent outline (width set in chart code). */
+  .recharts-tooltip-cursor {
+    fill: var(--surface-2) !important;
+    fill-opacity: 1 !important;
+    stroke: var(--accent) !important;
+    stroke-opacity: 1 !important;
+    stroke-dasharray: 4 3 !important;
+    stroke-width: 1 !important;
+  }
+
+  .recharts-active-bar {
+    stroke: var(--accent) !important;
+    stroke-opacity: 0.4 !important;
+    stroke-dasharray: 4 4 !important;
+    stroke-width: 1 !important;
+  }
 }
 
 /* Animations reused by primitives (spinners, toasts, entrance transitions). */
