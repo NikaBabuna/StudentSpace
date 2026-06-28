@@ -241,14 +241,14 @@ Each folder follows: `actions.ts` (mutations), `components/*Client.tsx` (interac
 
 #### `features/employer/`
 
-Separate portal UI (legacy inline styles in places). No server actions folder — pages load data server-side.
+Organisation (employer) portal. Its tabs are gated behind "coming in the next
+update" placeholders while the portal is rebuilt; the chrome now uses the shared
+design system (the legacy inline-style version was removed).
 
 | File | Role |
 | --- | --- |
-| `EmployerShell.tsx` | Employer layout chrome |
-| `EmployerClient.tsx` | Home grid of tutors/students |
-| `EmployerAnalyticsClient.tsx` | Employer analytics |
-| `PersonDetailClient.tsx` | Student/tutor detail page |
+| `EmployerShell.tsx` | Employer layout chrome — design-system styled, mobile drawer |
+| `EmployerComingSoon.tsx` | Shared "next update" placeholder for every employer tab |
 
 ### 5.5 `app/` — Routes
 
@@ -304,12 +304,10 @@ Routes are **Server Components** unless noted. They authenticate, fetch, sign UR
 | File | Role |
 | --- | --- |
 | `employer/layout.tsx` | Gates `users.is_employer`; wraps `EmployerShell` |
-| `employer/page.tsx` | Employer home |
-| `employer/analytics/page.tsx` | Analytics |
-| `employer/inbox/page.tsx` | Employer inbox |
-| `employer/settings/page.tsx` | Settings |
-| `employer/students/[userId]/page.tsx` | Student detail |
-| `employer/tutors/[userId]/page.tsx` | Tutor detail |
+| `employer/page.tsx` | Overview — placeholder ("coming in the next update") |
+| `employer/analytics/page.tsx` | Analytics — placeholder |
+| `employer/inbox/page.tsx` | Inbox — placeholder |
+| `employer/settings/page.tsx` | Settings — placeholder |
 
 ### 5.6 `supabase/migrations/`
 

@@ -13,10 +13,7 @@
  *   4. Palette definitions:
  *        :root            → DARK theme (the default)
  *        [data-theme=light]→ LIGHT theme (the opt-in toggle)
- *   5. Legacy `--color-ss-*` aliases — re-pointed at the new palette so screens
- *      not yet migrated to primitives still adopt the new look. These are
- *      removed once every page is converted (Phase 6).
- *   6. Base layer — resets, focus rings, scrollbars, keyframes.
+ *   5. Base layer — resets, focus rings, scrollbars, keyframes.
  *
  * Editorial palette ported from the supplied redesign mockup
  * (warm-light + cool-dark, indigo accent, serif display numerals).
@@ -195,52 +192,6 @@
 
   --shadow-sm: 0 1px 2px rgba(25, 22, 12, 0.05);
   --shadow:    0 1px 2px rgba(25, 22, 12, 0.04), 0 10px 30px -16px rgba(25, 22, 12, 0.18);
-}
-
-/* =============================================================================
- * LEGACY `--color-ss-*` ALIASES (transitional)
- * -----------------------------------------------------------------------------
- * Older screens reference these amber-era tokens via inline styles. Re-pointing
- * them at the editorial palette means those screens immediately adopt the new
- * light/dark theming (and auto-adapt when the theme flips) before they are
- * fully rebuilt with primitives. Deleted in Phase 6 once no references remain.
- * ========================================================================== */
-:root {
-  --color-ss-bg:            var(--bg);
-  --color-ss-bg-secondary:  var(--surface);
-  --color-ss-sidebar:       var(--surface);
-  --color-ss-border:        var(--line);
-  --color-ss-border-subtle: var(--line);
-
-  /* "amber" brand slots now carry the indigo accent */
-  --color-ss-amber:        var(--accent);
-  --color-ss-amber-light:  var(--accent);
-  --color-ss-amber-dim:    var(--accent-tint);
-  --color-ss-amber-border: var(--accent);
-
-  --color-ss-text-primary:   var(--ink);
-  --color-ss-text-secondary: var(--ink-2);
-  --color-ss-text-muted:     var(--muted);
-  --color-ss-text-faint:     var(--muted);
-  --color-ss-text-ghost:     var(--muted);
-
-  --color-ss-green:        var(--ok);
-  --color-ss-green-bg:     var(--ok-tint);
-  --color-ss-green-border: var(--ok);
-  --color-ss-red:          var(--danger);
-  --color-ss-red-bg:       var(--danger-tint);
-  --color-ss-red-border:   var(--danger);
-
-  /* Categorical hues (avatars, charts) — kept distinct, readable on both themes */
-  --color-ss-purple:        oklch(0.7 0.11 290);
-  --color-ss-purple-bg:     oklch(0.32 0.06 290);
-  --color-ss-purple-border: oklch(0.45 0.08 290);
-  --color-ss-blue:          oklch(0.7 0.11 245);
-  --color-ss-blue-bg:       oklch(0.32 0.06 245);
-  --color-ss-blue-border:   oklch(0.45 0.08 245);
-  --color-ss-orange:        oklch(0.74 0.13 55);
-  --color-ss-orange-bg:     oklch(0.33 0.06 55);
-  --color-ss-orange-border: oklch(0.48 0.09 55);
 }
 
 /* =============================================================================

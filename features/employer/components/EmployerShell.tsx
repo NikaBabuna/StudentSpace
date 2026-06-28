@@ -1,35 +1,55 @@
 /* =============================================================================
  * features/employer/components/EmployerShell.tsx — employer portal chrome
  * -----------------------------------------------------------------------------
- * Role: Separate layout for employer accounts: nav, logout, user header.
- *       Uses legacy inline styles in places (see ROADMAP for migration).
- * Dependencies: lib/supabase/client (logout), next/navigation
+ * Role: Layout for organisation (employer) accounts: brand, nav, user card,
+ *       sign-out. Below `lg` the rail collapses into an off-canvas drawer.
+ * Dependencies: lib/supabase/client (logout), components/ui/*, components/icons
  * Used by: app/employer/layout.tsx
- * Inputs: fullName, userInitials, userId, children
- * Outputs: Employer-branded shell wrapping portal pages
+ * Inputs: fullName, userInitials, children
+ * Outputs: Employer shell (design-system styled) wrapping portal pages
  * ========================================================================== */
 "use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
-import { MenuIcon } from "@/components/icons";
 
-const nav = [
-  { label: "Overview", href: "/employer" },
-  { label: "Analytics", href: "/employer/analytics" },
-  { label: "Inbox", href: "/employer/inbox" },
+import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
+import { Avatar } from "@/components/ui/avatar";
+import { IconButton } from "@/components/ui/icon-button";
+import {
+  Logo,
+  MenuIcon,
+  CloseIcon,
+  LogoutIcon,
+  InfoIcon,
+  ClassesIcon,
+  AnalyticsIcon,
+  InboxIcon,
+  SettingsIcon,
+  type IconProps,
+} from "@/components/icons";
+
+type NavItem = { label: string; href: string; icon: (p: IconProps) => React.ReactNode };
+
+const mainNav: NavItem[] = [
+  { label: "Overview", href: "/employer", icon: ClassesIcon },
+  { label: "Analytics", href: "/employer/analytics", icon: AnalyticsIcon },
+  { label: "Inbox", href: "/employer/inbox", icon: InboxIcon },
 ];
 
-const settingsNav = [
-  { label: "Settings", href: "/employer/settings" },
+const settingsNav: NavItem[] = [
+  { label: "Settings", href: "/employer/settings", icon: SettingsIcon },
 ];
 
-export default function EmployerShell({ fullName, userInitials, userId, children }: {
+export default function EmployerShell({
+  fullName,
+  userInitials,
+  children,
+}: {
   fullName: string;
   userInitials: string;
-  userId: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -51,118 +71,141 @@ export default function EmployerShell({ fullName, userInitials, userId, children
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: "var(--color-ss-bg)" }}>
-      {/* Mobile backdrop */}
-      {navOpen ? (
-        <div
-          aria-hidden="true"
-          onClick={() => setNavOpen(false)}
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
-        />
-      ) : null}
+    <div className="flex h-screen overflow-hidden bg-bg">
+      {/* Mobile backdrop — tap to dismiss the drawer (hidden at lg+). */}
+      <div
+        aria-hidden="true"
+        onClick={() => setNavOpen(false)}
+        className={cn(
+          "fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity lg:hidden",
+          navOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+      />
 
       {/* Sidebar — off-canvas drawer below lg, static rail at lg+ */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-[220px] shrink-0 flex flex-col transition-transform duration-200 ease-out lg:static lg:translate-x-0 ${
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-[232px] shrink-0 flex-col border-r border-line bg-surface transition-transform duration-200 ease-out lg:static lg:translate-x-0 lg:transition-none",
           navOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
-        style={{ background: "var(--color-ss-sidebar)", borderRight: "0.5px solid var(--color-ss-border)" }}>
+        )}
+      >
+        {/* Close drawer (mobile only) */}
+        <IconButton
+          aria-label="Close navigation"
+          onClick={() => setNavOpen(false)}
+          className="absolute right-3 top-3 lg:hidden"
+        >
+          <CloseIcon size={18} />
+        </IconButton>
 
-        {/* Logo */}
-        <Link href="/employer" className="px-5 py-5 hover:opacity-75 transition-opacity"
-          style={{ borderBottom: "0.5px solid var(--color-ss-border)", textDecoration: "none" }}>
-          <div className="text-[15px] font-medium" style={{ color: "var(--color-ss-text-primary)" }}>
+        {/* Brand → employer home */}
+        <Link
+          href="/employer"
+          className="flex items-center gap-2.5 border-b border-line px-5 py-[18px] transition-opacity hover:opacity-80"
+        >
+          <span className="flex size-7 items-center justify-center rounded-lg bg-accent text-accent-ink">
+            <Logo size={17} />
+          </span>
+          <span className="text-[15.5px] font-semibold tracking-[-0.01em] text-ink">
             StudentSpace
-          </div>
+          </span>
         </Link>
 
         {/* Nav */}
-        <nav className="flex flex-col gap-0 px-3 flex-1 pt-3">
-          <div className="mb-4">
-            <div className="text-[10px] uppercase tracking-widest px-2 mb-1" style={{ color: "#5a5248" }}>Main</div>
-            {nav.map(item => {
-              const active = pathname === item.href;
-              return (
-                <Link key={item.href} href={item.href}
-                  className="flex items-center gap-2 px-2.5 py-[7px] rounded-md text-[13px]"
-                  style={{
-                    background: active ? "#2a2318" : "transparent",
-                    color: active ? "var(--color-ss-amber-light)" : "var(--color-ss-text-muted)",
-                    textDecoration: "none",
-                  }}>
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ background: active ? "var(--color-ss-amber-light)" : "#5a5248" }} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-          <div className="mb-4">
-            <div className="text-[10px] uppercase tracking-widest px-2 mb-1" style={{ color: "#5a5248" }}>Settings</div>
-            {settingsNav.map(item => {
-              const active = pathname === item.href;
-              return (
-                <Link key={item.href} href={item.href}
-                  className="flex items-center gap-2 px-2.5 py-[7px] rounded-md text-[13px]"
-                  style={{
-                    background: active ? "#2a2318" : "transparent",
-                    color: active ? "var(--color-ss-amber-light)" : "var(--color-ss-text-muted)",
-                    textDecoration: "none",
-                  }}>
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ background: active ? "var(--color-ss-amber-light)" : "#5a5248" }} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
+        <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
+          <NavGroup label="Organisation">
+            {mainNav.map((item) => (
+              <NavLink key={item.href} item={item} pathname={pathname} />
+            ))}
+          </NavGroup>
+          <NavGroup label="Settings">
+            {settingsNav.map((item) => (
+              <NavLink key={item.href} item={item} pathname={pathname} />
+            ))}
+          </NavGroup>
         </nav>
 
-        {/* Footer */}
-        <div className="px-4 py-4" style={{ borderTop: "0.5px solid var(--color-ss-border)" }}>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-[28px] h-[28px] rounded-full flex items-center justify-center text-[10px] font-medium shrink-0"
-              style={{ background: "#3a2e1a", border: "1px solid #6a5530", color: "var(--color-ss-amber-light)" }}>
-              {userInitials}
+        {/* Footer: user card + sign out */}
+        <div className="border-t border-line p-3">
+          <div className="flex items-center gap-2.5 rounded-xl border border-line bg-surface-2 p-2.5">
+            <Avatar initials={userInitials} name={fullName} size="sm" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-medium text-ink">{fullName}</div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[12px] font-medium truncate" style={{ color: "#b0a080" }}>{fullName}</div>
-            </div>
+            <IconButton
+              aria-label="Sign out"
+              title="Sign out"
+              onClick={handleSignOut}
+              disabled={signingOut}
+            >
+              <LogoutIcon size={16} />
+            </IconButton>
           </div>
-          <button onClick={handleSignOut} disabled={signingOut}
-            className="w-full text-[11px] py-1.5 rounded-md"
-            style={{
-              background: "#2a2820", color: "var(--color-ss-text-faint)",
-              border: "0.5px solid var(--color-ss-border)",
-              opacity: signingOut ? 0.6 : 1, cursor: "pointer",
-            }}>
-            {signingOut ? "Signing out…" : "Sign out"}
-          </button>
         </div>
       </aside>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Mobile header with menu trigger (hidden at lg+) */}
-        <div
-          className="flex items-center gap-3 px-4 py-3 lg:hidden"
-          style={{ background: "var(--color-ss-sidebar)", borderBottom: "0.5px solid var(--color-ss-border)" }}
-        >
-          <button
-            type="button"
+        <header className="flex h-[58px] shrink-0 items-center gap-2 border-b border-line bg-surface/80 px-4 backdrop-blur-md lg:hidden">
+          <IconButton
             aria-label="Open navigation"
             onClick={() => setNavOpen(true)}
-            className="inline-flex items-center justify-center rounded-md p-1"
-            style={{ color: "var(--color-ss-text-secondary)" }}
+            className="-ml-1"
           >
-            <MenuIcon size={20} />
-          </button>
-          <span className="text-[14px] font-medium" style={{ color: "var(--color-ss-text-primary)" }}>
+            <MenuIcon size={18} />
+          </IconButton>
+          <span className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
             StudentSpace
           </span>
+        </header>
+
+        {/* Active-development notice — shown on every employer tab so it's clear
+         * why the tabs are placeholders. */}
+        <div className="flex shrink-0 items-start gap-2.5 border-b border-line bg-accent-tint px-5 py-2.5 sm:px-7">
+          <InfoIcon size={16} className="mt-0.5 shrink-0 text-accent" />
+          <p className="text-[12.5px] leading-relaxed text-ink-2">
+            <span className="font-semibold text-ink">
+              The organisation portal is in active development.
+            </span>{" "}
+            These tabs are placeholders for now — overview, analytics, inbox and
+            settings are being built and will roll out in upcoming updates.
+          </p>
         </div>
+
         {children}
       </div>
+    </div>
+  );
+}
+
+/** A single nav row: icon + label, with active styling (matches the main app). */
+function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
+  const active = pathname === item.href;
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] font-medium transition-colors",
+        active ? "bg-accent-tint text-accent" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+      )}
+    >
+      <Icon size={18} />
+      {item.label}
+    </Link>
+  );
+}
+
+/** A labelled cluster of nav rows. */
+function NavGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className="px-2.5 pb-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+        {label}
+      </div>
+      {children}
     </div>
   );
 }

@@ -38,7 +38,7 @@ export default async function EmployerLayout({
     .slice(0, 2);
 
   return (
-    <EmployerShell fullName={fullName} userInitials={userInitials} userId={user.id}>
+    <EmployerShell fullName={fullName} userInitials={userInitials}>
       {children}
     </EmployerShell>
   );

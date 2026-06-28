@@ -47,7 +47,7 @@ Client Components → server actions + storage uploads
 | Inbox | `/inbox` |
 | Settings | `/settings/access`, `/settings/preferences` |
 | Classes | `/classes/new`, `/classes/[id]/overview`, `/classes/[id]/schedule`, `/classes/[id]/homework`, `/classes/[id]/homework/[hwId]`, `/classes/[id]/materials`, `/classes/[id]/chat`, `/classes/[id]/invite` |
-| Employer | `/employer`, `/employer/analytics`, `/employer/inbox`, `/employer/settings`, `/employer/students/[userId]`, `/employer/tutors/[userId]` |
+| Employer | `/employer`, `/employer/analytics`, `/employer/inbox`, `/employer/settings` (all gated as "coming soon" placeholders) |
 
 ### Repository layout
 

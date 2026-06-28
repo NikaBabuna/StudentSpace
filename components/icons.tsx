@@ -193,6 +193,14 @@ export const MenuIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const InfoIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="9" cy="9" r="6.5" />
+    <path d="M9 8.25v3.5" />
+    <path d="M9 5.75h.01" />
+  </Icon>
+);
+
 export const SearchIcon = (p: IconProps) => (
   <Icon {...p}>
     <circle cx="8" cy="8" r="4.8" />

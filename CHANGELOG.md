@@ -1,5 +1,31 @@
 # Changelog
 
+## Organisation (employer) portal — gated + de-legacied
+
+### Summary
+
+The employer/organisation portal isn't finished, so its tabs are now gated
+behind "coming in the next update" placeholders, and the legacy inline-style
+employer code was removed as groundwork for a future rebuild on the design
+system.
+
+### Changes
+
+- **New** `features/employer/components/EmployerComingSoon.tsx` — shared
+  design-system placeholder (header + centered "Next update" card). All four
+  employer tabs (`/employer`, `/analytics`, `/inbox`, `/settings`) now render it.
+- **`EmployerShell.tsx`** — rewritten on the design system (semantic tokens +
+  `components/ui/*` primitives: `Avatar`, `IconButton`, shared icons) instead of
+  inline styles and `--color-ss-*` tokens. Keeps the mobile drawer.
+- **Tab pages** are now static placeholders — the data loaders (and their
+  `no-explicit-any` casts) are gone; access is still gated by `employer/layout.tsx`.
+- **Removed (dead legacy code):** `EmployerClient.tsx`,
+  `EmployerAnalyticsClient.tsx`, `PersonDetailClient.tsx`, and the person-detail
+  routes `app/employer/students/[userId]` and `app/employer/tutors/[userId]`.
+- Docs updated (`ARCHITECTURE.md`, `ENGINEERING.md`, `ROADMAP.md`).
+
+---
+
 ## Mobile responsiveness
 
 ### Summary
@@ -24,8 +50,8 @@ at `lg`+ the layout is unchanged.
   smaller mobile title; tighter `PageContainer` padding on small screens.
 - **`app/classes/[id]/layout.tsx`** — class header stacks on mobile.
 - **`features/employer/components/EmployerShell.tsx`** — same drawer pattern for
-  the employer portal; employer overview/analytics grids made responsive and the
-  per-class breakdown table is horizontally scrollable.
+  the employer portal. (The employer feature grids were later removed — see the
+  organisation-portal entry above.)
 - **`features/calendar/components/CalendarClient.tsx`** — week/month grids scroll
   horizontally (`min-w` + `overflow-x-auto`) so columns stay legible.
 - **`shell/loading-skeleton.tsx`** — `ShellSkeleton` matches the responsive shell.

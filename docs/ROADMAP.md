@@ -18,14 +18,14 @@ Path from **feature-complete V1** to **hardened production** for a small tutorin
 
 ## Current snapshot
 
-**App:** Core flows work end-to-end (classes, schedule, homework, materials, chat, inbox, analytics, employer portal).
+**App:** Core flows work end-to-end (classes, schedule, homework, materials, chat, inbox, analytics). The employer/organisation portal is gated behind "coming in the next update" placeholders pending a rebuild on the design system.
 
 **Gaps before calling production hardened:**
 
 1. **Storage** — Signed-URL code and policy SQL exist; buckets may still be public until manually flipped in Supabase.
 2. **RLS** — Policy SQL is in repo (`0002`, `0003`, `0004`); migration notes say policies are applied in production, but there is no automated role × table test matrix.
-3. **Code quality** — ESLint reports **18** `no-explicit-any` errors (in `app/dashboard/analytics/page.tsx`, `app/employer/page.tsx`, `lib/dashboard-data.ts`). CI lint is informational (`continue-on-error: true`).
-4. **Employer UI** — `features/employer/*` still uses legacy inline styles and `--color-ss-*` tokens (main app uses the design system).
+3. **Code quality** — ESLint reports `no-explicit-any` errors (concentrated in `app/dashboard/analytics/page.tsx`, `lib/dashboard-data.ts`; the employer loaders that held the rest were removed when the portal was gated). CI lint is informational (`continue-on-error: true`).
+4. **Employer UI** — ✅ Resolved. The legacy inline-style portal was removed; `EmployerShell` now uses the design system and the tabs are gated as "coming soon" pending a rebuild.
 
 ---
 
@@ -52,7 +52,7 @@ Path from **feature-complete V1** to **hardened production** for a small tutorin
 - Inbox (invites + parent-link requests)
 - Parent linking (`/settings/access`)
 - Tutor analytics with live FX fetch (`open.er-api.com`) and static fallback rates
-- Employer portal (`/employer`, analytics, inbox, person detail pages)
+- Employer portal shell (`/employer`, analytics, inbox, settings) — tabs gated as "coming soon" placeholders pending a design-system rebuild
 - Invite page tutor guard (`requireTutor`)
 - Zod validation on signup, class create, homework, and lesson forms (`lib/validation.ts`)
 - Signed URL helper (`lib/storage.ts`)
@@ -88,7 +88,7 @@ Path from **feature-complete V1** to **hardened production** for a small tutorin
 
 | # | Task | Status | Notes |
 | --- | --- | --- | --- |
-| 2.1 | **Fix `no-explicit-any` (18 errors)** | Open | Concentrated in analytics and employer data loaders. Target files: `app/dashboard/analytics/page.tsx`, `app/employer/page.tsx`, `lib/dashboard-data.ts`. |
+| 2.1 | **Fix `no-explicit-any`** | Open | Concentrated in analytics data loaders. Target files: `app/dashboard/analytics/page.tsx`, `lib/dashboard-data.ts`. (The employer loaders that held the rest were removed when the portal was gated.) |
 | 2.2 | **Lint as CI gate** | Open | Set `continue-on-error: false` in `.github/workflows/ci.yml` after 2.1. |
 | 2.3 | **Playwright happy path** | Open | Login → dashboard → class → post homework → student submit. Not in `package.json` yet. |
 | 2.4 | **Sentry source maps** | Open | Config supports upload; set `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` on Vercel for readable stack traces. |
@@ -117,7 +117,7 @@ These improve UX and maintainability but do not block a cautious private launch.
 
 | Task | Notes |
 | --- | --- |
-| **Employer design-system migration** | Replace inline styles / `--color-ss-*` in `features/employer/*` with shared tokens and `components/ui/*`. |
+| **Employer portal rebuild** | ✅ Shell migrated to the design system; legacy inline-style components removed. Remaining: rebuild the actual Overview / Analytics / Inbox / Settings features (currently "coming soon" placeholders) on the design system. |
 | **Per-cycle payment amount** | Amount/currency set at class creation and editable on the **open** cycle via class settings; no UI when a **new** cycle opens after close. |
 | **Extract shared components** | `FileDropZone`, `DeadlineBadge` duplicated in `HomeworkClient` and `MaterialsClient`. |
 | **User preferences** | `/settings/preferences` is a placeholder; needs timezone / display-name editing (likely after email-verification policy is decided). |
