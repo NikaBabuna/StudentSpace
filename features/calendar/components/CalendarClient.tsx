@@ -366,9 +366,9 @@ export default function CalendarClient({
           description="When you join or create a class, its lessons show up here."
         />
       ) : view === "week" ? (
-        <div className="rounded-2xl border border-line bg-surface">
+        <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
           {/* Day headers */}
-          <div className="flex border-b border-line">
+          <div className="flex min-w-[640px] border-b border-line">
             <div className="w-[52px] shrink-0" />
             {weekDates.map((day, i) => {
               const isToday = sameDay(day, today);
@@ -391,7 +391,7 @@ export default function CalendarClient({
           </div>
 
           {/* Time grid */}
-          <div className="flex">
+          <div className="flex min-w-[640px]">
             <div className="w-[52px] shrink-0">
               {hourMarks.slice(0, -1).map((h) => (
                 <div key={h} style={{ height: PPH }} className="relative">
@@ -622,15 +622,15 @@ function MonthView({
   }, [lessons]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-surface">
-      <div className="grid grid-cols-7 border-b border-line">
+    <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
+      <div className="grid min-w-[640px] grid-cols-7 border-b border-line">
         {WEEKDAY_MIN.map((d, i) => (
           <div key={i} className="px-2 py-2 text-center font-mono text-[10.5px] uppercase tracking-wide text-muted">
             {d}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7">
+      <div className="grid min-w-[640px] grid-cols-7">
         {weeks.flat().map((cell, i) => {
           if (!cell) return <div key={i} className="min-h-[104px] border-b border-l border-line first:border-l-0" />;
           const dayLessons = byDay.get(cell.dateKey) ?? [];

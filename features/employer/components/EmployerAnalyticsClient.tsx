@@ -59,7 +59,7 @@ export default function EmployerAnalyticsClient({
   return (
     <div className="flex-1 overflow-auto p-6">
       {/* Top stats */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-6 sm:grid-cols-4">
         <StatCard label="Classes" value={String(classStats.length)} />
         <StatCard label="Completed hours" value={totalCompletedHours.toLocaleString()} />
         <StatCard label="Lessons" value={String(totalLessons)} sub={`${totalMissed} missed`} />
@@ -76,7 +76,7 @@ export default function EmployerAnalyticsClient({
             No payment amounts set on any cycle yet.
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {earnings.map((e) => (
               <div
                 key={e.currency}
@@ -104,11 +104,11 @@ export default function EmployerAnalyticsClient({
           Per-class breakdown
         </div>
         <div
-          className="rounded-xl overflow-hidden"
+          className="rounded-xl overflow-x-auto"
           style={{ border: "0.5px solid var(--color-ss-border)" }}
         >
           <div
-            className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr] gap-2 px-4 py-2 text-[11px]"
+            className="grid min-w-[560px] grid-cols-[2fr_1.5fr_1fr_1fr_1fr] gap-2 px-4 py-2 text-[11px]"
             style={{ background: "var(--color-ss-bg-secondary)", color: "var(--color-ss-text-ghost)" }}
           >
             <div>Class</div><div>Tutor</div><div>Hours</div><div>Completed</div><div>Missed</div>
@@ -121,7 +121,7 @@ export default function EmployerAnalyticsClient({
             classStats.map((c) => (
               <div
                 key={c.id}
-                className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr] gap-2 px-4 py-2.5 text-[12px]"
+                className="grid min-w-[560px] grid-cols-[2fr_1.5fr_1fr_1fr_1fr] gap-2 px-4 py-2.5 text-[12px]"
                 style={{ borderTop: "0.5px solid var(--color-ss-border)", color: "var(--color-ss-text-secondary)" }}
               >
                 <div className="truncate">

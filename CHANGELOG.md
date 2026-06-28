@@ -1,5 +1,37 @@
 # Changelog
 
+## Mobile responsiveness
+
+### Summary
+
+Made the app usable on phones/tablets. The app was desktop-first: a permanently
+mounted fixed-width sidebar (248px tutor/student, 220px employer) left almost no
+room for content below ~1024px. Below the `lg` breakpoint the sidebar now
+collapses into an off-canvas **drawer** opened by a hamburger in the topbar;
+at `lg`+ the layout is unchanged.
+
+### Changes
+
+- **New** `components/shell/mobile-nav.tsx` — `MobileNavProvider` (shared
+  open-state + close-on-navigation + body-scroll lock), `useMobileNav`, and the
+  `SidebarTrigger` hamburger. `MenuIcon` added to `components/icons.tsx`.
+- **`shell/app-shell.tsx`** — single column on mobile, `lg:grid-cols-[248px_1fr]`
+  at `lg`+; wraps the shell in `MobileNavProvider`.
+- **`shell/sidebar.tsx`** — `<aside>` is a fixed off-canvas drawer + backdrop +
+  close button below `lg`; static sticky rail at `lg`+.
+- **`shell/topbar.tsx`** — hamburger trigger + responsive padding.
+- **`shell/page-container.tsx`** — `PageHeader` stacks vertically on mobile;
+  smaller mobile title; tighter `PageContainer` padding on small screens.
+- **`app/classes/[id]/layout.tsx`** — class header stacks on mobile.
+- **`features/employer/components/EmployerShell.tsx`** — same drawer pattern for
+  the employer portal; employer overview/analytics grids made responsive and the
+  per-class breakdown table is horizontally scrollable.
+- **`features/calendar/components/CalendarClient.tsx`** — week/month grids scroll
+  horizontally (`min-w` + `overflow-x-auto`) so columns stay legible.
+- **`shell/loading-skeleton.tsx`** — `ShellSkeleton` matches the responsive shell.
+
+---
+
 ## Features module refactor
 
 ### Summary

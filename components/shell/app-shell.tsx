@@ -19,6 +19,7 @@ import * as React from "react";
 import { Sidebar, type SidebarProps } from "./sidebar";
 import { ShellTopbar } from "./shell-topbar";
 import { Topbar, type Breadcrumb } from "./topbar";
+import { MobileNavProvider } from "./mobile-nav";
 
 type AppShellProps = SidebarProps & {
   children: React.ReactNode;
@@ -36,16 +37,20 @@ export function AppShell({
   ...sidebar
 }: AppShellProps) {
   return (
-    <div className="grid min-h-screen grid-cols-[248px_1fr] bg-bg">
-      <Sidebar {...sidebar} />
-      <div className="flex min-h-screen min-w-0 flex-col">
-        {autoBreadcrumb ? (
-          <ShellTopbar actions={topbarActions} />
-        ) : (
-          <Topbar breadcrumb={breadcrumb} actions={topbarActions} />
-        )}
-        <main className="min-w-0 flex-1">{children}</main>
+    // Below `lg` the sidebar is an off-canvas drawer (handled inside <Sidebar>),
+    // so the shell is a single column; at `lg`+ it becomes the fixed two-col grid.
+    <MobileNavProvider>
+      <div className="min-h-screen bg-bg lg:grid lg:grid-cols-[248px_1fr]">
+        <Sidebar {...sidebar} />
+        <div className="flex min-h-screen min-w-0 flex-col">
+          {autoBreadcrumb ? (
+            <ShellTopbar actions={topbarActions} />
+          ) : (
+            <Topbar breadcrumb={breadcrumb} actions={topbarActions} />
+          )}
+          <main className="min-w-0 flex-1">{children}</main>
+        </div>
       </div>
-    </div>
+    </MobileNavProvider>
   );
 }

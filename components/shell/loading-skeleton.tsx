@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 function SidebarSkeleton() {
   return (
-    <div className="flex flex-col gap-5 border-r border-line bg-surface p-4">
+    <div className="hidden flex-col gap-5 border-r border-line bg-surface p-4 lg:flex">
       <div className="flex items-center gap-2.5 px-1 py-1">
         <Skeleton className="size-7 rounded-lg" />
         <Skeleton className="h-4 w-28" />
@@ -121,7 +121,7 @@ function CardBlockSkeleton({ lines = 3 }: { lines?: number }) {
 
 export function ShellSkeleton() {
   return (
-    <div className="grid min-h-screen grid-cols-[248px_1fr] bg-bg">
+    <div className="min-h-screen bg-bg lg:grid lg:grid-cols-[248px_1fr]">
       <SidebarSkeleton />
       <div className="flex min-w-0 flex-col">
         <div className="h-[62px] border-b border-line" />

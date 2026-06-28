@@ -22,11 +22,13 @@ import { Avatar } from "@/components/ui/avatar";
 import { IconButton } from "@/components/ui/icon-button";
 import { Progress } from "@/components/ui/progress";
 import { ClassSettingsModal } from "./class-settings-modal";
+import { useMobileNav } from "./mobile-nav";
 import {
   Logo,
   PlusIcon,
   LogoutIcon,
   SettingsIcon,
+  CloseIcon,
   ChevronLeftIcon,
   DashboardIcon,
   AnalyticsIcon,
@@ -93,6 +95,7 @@ export function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const { open, setOpen } = useMobileNav();
   const [signingOut, setSigningOut] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -118,7 +121,30 @@ export function Sidebar({
 
   return (
     <>
-      <aside className="sticky top-0 flex h-screen w-[248px] shrink-0 flex-col gap-5 border-r border-line bg-surface p-4">
+      {/* Mobile backdrop — tap to dismiss the drawer (hidden at lg+). */}
+      <div
+        aria-hidden="true"
+        onClick={() => setOpen(false)}
+        className={cn(
+          "fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity lg:hidden",
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+      />
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex h-screen w-[248px] shrink-0 flex-col gap-5 overflow-y-auto border-r border-line bg-surface p-4 transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:z-auto lg:translate-x-0 lg:transition-none",
+          open ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Close drawer (mobile only) */}
+        <IconButton
+          aria-label="Close navigation"
+          onClick={() => setOpen(false)}
+          className="absolute right-3 top-3 lg:hidden"
+        >
+          <CloseIcon size={18} />
+        </IconButton>
+
         {/* Brand → dashboard */}
         <Link
           href="/dashboard"

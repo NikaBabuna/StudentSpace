@@ -108,7 +108,7 @@ export default async function ClassLayout({
     >
       <RecordClassVisit classId={id} />
       <PageContainer className="pb-16 pt-[34px]">
-        <div className="mb-6 flex items-start justify-between gap-5">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
           <div className="flex items-start gap-4">
             <div className="flex size-[52px] shrink-0 items-center justify-center rounded-[14px] border border-line bg-accent-tint font-mono text-[13px] font-semibold text-accent">
               {tile}
@@ -119,7 +119,7 @@ export default async function ClassLayout({
                   {eyebrow}
                 </div>
               ) : null}
-              <h1 className="font-serif text-[30px] leading-[1.05] tracking-[-0.01em] text-ink">
+              <h1 className="font-serif text-[24px] leading-[1.05] tracking-[-0.01em] text-ink sm:text-[30px]">
                 {cls.title}
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13.5px] text-ink-2">

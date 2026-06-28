@@ -112,7 +112,7 @@ export default function EmployerClient({ firstName, tutors, students, totalClass
             No results for "{search}"
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {filtered.map(person => (
               <PersonCard key={person.id} person={person} type={tab} />
             ))}

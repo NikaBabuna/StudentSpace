@@ -187,6 +187,12 @@ export const CloseIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const MenuIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M2.75 4.75h12.5M2.75 9h12.5M2.75 13.25h12.5" />
+  </Icon>
+);
+
 export const SearchIcon = (p: IconProps) => (
   <Icon {...p}>
     <circle cx="8" cy="8" r="4.8" />

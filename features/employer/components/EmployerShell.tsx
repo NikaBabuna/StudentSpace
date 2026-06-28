@@ -13,7 +13,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { MenuIcon } from "@/components/icons";
 
 const nav = [
   { label: "Overview", href: "/employer" },
@@ -35,6 +36,13 @@ export default function EmployerShell({ fullName, userInitials, userId, children
   const router = useRouter();
   const supabase = createClient();
   const [signingOut, setSigningOut] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+
+  // Close the drawer on navigation (below lg, the sidebar is off-canvas).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNavOpen(false);
+  }, [pathname]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -44,8 +52,20 @@ export default function EmployerShell({ fullName, userInitials, userId, children
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--color-ss-bg)" }}>
-      {/* Sidebar */}
-      <aside className="w-[220px] shrink-0 flex flex-col"
+      {/* Mobile backdrop */}
+      {navOpen ? (
+        <div
+          aria-hidden="true"
+          onClick={() => setNavOpen(false)}
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+        />
+      ) : null}
+
+      {/* Sidebar — off-canvas drawer below lg, static rail at lg+ */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-[220px] shrink-0 flex flex-col transition-transform duration-200 ease-out lg:static lg:translate-x-0 ${
+          navOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
         style={{ background: "var(--color-ss-sidebar)", borderRight: "0.5px solid var(--color-ss-border)" }}>
 
         {/* Logo */}
@@ -123,6 +143,24 @@ export default function EmployerShell({ fullName, userInitials, userId, children
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Mobile header with menu trigger (hidden at lg+) */}
+        <div
+          className="flex items-center gap-3 px-4 py-3 lg:hidden"
+          style={{ background: "var(--color-ss-sidebar)", borderBottom: "0.5px solid var(--color-ss-border)" }}
+        >
+          <button
+            type="button"
+            aria-label="Open navigation"
+            onClick={() => setNavOpen(true)}
+            className="inline-flex items-center justify-center rounded-md p-1"
+            style={{ color: "var(--color-ss-text-secondary)" }}
+          >
+            <MenuIcon size={20} />
+          </button>
+          <span className="text-[14px] font-medium" style={{ color: "var(--color-ss-text-primary)" }}>
+            StudentSpace
+          </span>
+        </div>
         {children}
       </div>
     </div>
