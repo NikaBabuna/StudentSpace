@@ -5,12 +5,19 @@
  *       class list with counts, upcoming lessons, homework needing attention,
  *       and stat cards. Redirects employers to /employer.
  * Dependencies: lib/auth, lib/dashboard-stats, next/navigation
- * Used by: app/dashboard/page.tsx
+ * Used by: app/(shell)/dashboard/page.tsx
  * Inputs: None (reads current session)
  * Outputs: loadDashboardData() → greeting, stats, classes, sessions, headings
  * ========================================================================== */
 import { buildDashboardStats, greetingForHour, type DashboardStat } from "@/lib/dashboard-stats";
 import { getServerClient, getCurrentUser } from "@/lib/auth";
+import {
+  calendarDayDiffInZone,
+  dayKeyInZone,
+  formatDateInZone,
+  formatTimeInZone,
+  isSameDayInZone,
+} from "@/lib/time";
 import { redirect } from "next/navigation";
 
 const FALLBACK_ID = "00000000-0000-0000-0000-000000000000";
@@ -93,27 +100,18 @@ function classDotColor(classId: string) {
   return CLASS_DOTS[hash]!;
 }
 
-function isSameDay(a: Date, b: Date) {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
+// This loader runs in a Server Component (UTC on Vercel), so every time/day
+// value below is computed in the app timezone — otherwise lessons render a few
+// hours off and "today"/"tomorrow" bucket on the wrong calendar day.
 function formatTime(d: Date) {
-  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
+  return formatTimeInZone(d);
 }
 
 function formatNextSession(at: Date, now: Date) {
-  if (isSameDay(at, now)) return `Today ${formatTime(at)}`;
-  const atDay = new Date(at);
-  atDay.setHours(0, 0, 0, 0);
-  const nowDay = new Date(now);
-  nowDay.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((atDay.getTime() - nowDay.getTime()) / 86400000);
+  if (isSameDayInZone(at, now)) return `Today ${formatTime(at)}`;
+  const diffDays = calendarDayDiffInZone(at, now);
   if (diffDays === 1) return `Tomorrow ${formatTime(at)}`;
-  const weekday = at.toLocaleDateString(undefined, { weekday: "short" });
+  const weekday = formatDateInZone(at, { weekday: "short" });
   return `${weekday} ${formatTime(at)}`;
 }
 
@@ -123,11 +121,7 @@ function formatDurationHours(hours: number) {
 }
 
 function daysUntil(deadline: Date, now: Date) {
-  const a = new Date(deadline);
-  a.setHours(0, 0, 0, 0);
-  const b = new Date(now);
-  b.setHours(0, 0, 0, 0);
-  return Math.round((a.getTime() - b.getTime()) / 86400000);
+  return calendarDayDiffInZone(deadline, now);
 }
 
 type LessonRow = {
@@ -164,16 +158,12 @@ function buildTodaySessions(
   classMap: Map<string, { title: string; subject?: string | null; level?: string | null }>,
   now: Date
 ): UpcomingSessionRow[] {
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
+  const todayKey = dayKeyInZone(now);
 
   return lessons
     .filter((l) => {
       if (l.status !== "scheduled") return false;
-      const at = new Date(l.scheduled_at);
-      return at >= start && at <= end;
+      return dayKeyInZone(new Date(l.scheduled_at)) === todayKey;
     })
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
     .map((l) => lessonToSessionRow(l, classMap, now));
@@ -250,13 +240,13 @@ function buildHomeworkAttention({
         due = "Due today";
         dueTone = "warn";
       } else if (past) {
-        due = `Due ${deadline.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+        due = `Due ${formatDateInZone(deadline, { month: "short", day: "numeric" })}`;
         dueTone = "warn";
       } else if (dayDiff > 0 && dayDiff <= 7) {
         due = `Due in ${dayDiff} day${dayDiff === 1 ? "" : "s"}`;
         dueTone = "neutral";
       } else {
-        due = deadline.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        due = formatDateInZone(deadline, { month: "short", day: "numeric" });
         dueTone = "neutral";
       }
 
@@ -288,7 +278,7 @@ function buildHomeworkAttention({
         due = `Due in ${dayDiff} day${dayDiff === 1 ? "" : "s"}`;
         dueTone = "neutral";
       } else {
-        due = deadline.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        due = formatDateInZone(deadline, { month: "short", day: "numeric" });
         dueTone = "neutral";
       }
 

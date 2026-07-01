@@ -4,7 +4,7 @@
  * Role: Lists class invites and parent-child requests; accept/decline buttons
  *       call inbox server actions.
  * Dependencies: inbox/actions, components/ui, AppShell context
- * Used by: app/inbox/page.tsx, app/employer/inbox/page.tsx
+ * Used by: app/(shell)/inbox/page.tsx
  * Inputs: invites and parent_requests arrays from server
  * Outputs: Actionable inbox lists with respond handlers
  * ========================================================================== */

@@ -11,7 +11,8 @@ StudentSpace gives every class a shared workspace — schedule, homework, materi
 | | |
 | --- | --- |
 | **Classes** | Shared workspace per subject or group |
-| **Schedule** | Weekly calendar, makeups, recurring lessons, payment cycles |
+| **Schedule** | Per-class weekly view, makeups, recurring lessons, payment cycles |
+| **Calendar** | Cross-class calendar of all your lessons |
 | **Homework** | Assignments, file submissions, tutor feedback |
 | **Materials** | Organised file library with drag-and-drop upload |
 | **Chat** | Live class messaging |
@@ -45,7 +46,8 @@ npm run lint     # ESLint
 | Guide | Contents |
 | --- | --- |
 | [**Product**](docs/PRODUCT.md) | Schema, roles, business rules, feature roadmap |
-| [**Engineering**](docs/ENGINEERING.md) | Architecture, local dev, deployment, design system |
+| [**Engineering**](docs/ENGINEERING.md) | Conventions, local dev, deployment, design system |
+| [**Architecture**](docs/ARCHITECTURE.md) | File-by-file map, routes, data flow |
 | [**Roadmap**](docs/ROADMAP.md) | Production hardening backlog and status |
 
 [Changelog](CHANGELOG.md)
@@ -61,13 +63,13 @@ Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · Supabase · Vercel
 ## Repository
 
 ```
-app/                  Routes (thin server pages)
+app/                  Routes (thin server pages; dashboard routes in app/(shell)/)
 features/             Domain modules (components, actions, lib)
 components/ui/        Design-system primitives
 components/shell/     App chrome
 lib/                  Auth, Supabase clients, shared logic
 supabase/migrations/  Versioned SQL
-docs/                 Product, engineering, roadmap
+docs/                 Product, engineering, architecture, roadmap
 ```
 
 ---

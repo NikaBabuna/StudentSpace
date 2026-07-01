@@ -4,7 +4,7 @@
  * Role: Groups and displays all classes the user belongs to (teaching vs
  *       attending). Uses shared ClassCard/ClassGroup components.
  * Dependencies: class-shared, lib/dashboard-data types
- * Used by: app/dashboard/classes/page.tsx
+ * Used by: app/(shell)/dashboard/classes/page.tsx
  * Inputs: Preloaded class rows from server
  * Outputs: Filterable/grouped class grid with navigation links
  * ========================================================================== */

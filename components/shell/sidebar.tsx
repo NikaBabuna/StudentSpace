@@ -66,6 +66,8 @@ export interface SidebarProps {
     description?: string | null;
     tutor_notes?: string | null;
     cycleHoursTarget?: number;
+    paymentAmount?: number | null;
+    paymentCurrency?: string | null;
     isCreator?: boolean;
   };
   tutorInitials?: string;
@@ -258,6 +260,8 @@ export function Sidebar({
           initialDescription={student.description}
           initialTutorNotes={student.tutor_notes}
           initialCycleHours={student.cycleHoursTarget ?? student.cycleTotal}
+          initialPaymentAmount={student.paymentAmount}
+          initialPaymentCurrency={student.paymentCurrency}
           isCreator={student.isCreator ?? false}
           onClose={() => setShowSettings(false)}
         />

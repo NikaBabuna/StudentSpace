@@ -4,7 +4,7 @@
  * Role: Client UI for creating a class: basics, schedule, invites, review.
  *       Calls create-class and schedule actions; handles validation feedback.
  * Dependencies: create-class actions, schedule-utils, components/ui
- * Used by: app/classes/new/page.tsx
+ * Used by: app/(shell)/classes/new/page.tsx
  * Inputs: None (form state internal)
  * Outputs: Redirects to new class on success
  * ========================================================================== */

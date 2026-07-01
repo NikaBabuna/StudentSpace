@@ -18,6 +18,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
+import { updateClass, deleteClass } from "@/features/dashboard/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,6 +34,8 @@ export type ClassSettingsModalProps = {
   initialDescription: string | null | undefined;
   initialTutorNotes: string | null | undefined;
   initialCycleHours: number;
+  initialPaymentAmount?: number | null;
+  initialPaymentCurrency?: string | null;
   isCreator: boolean;
   onClose: () => void;
 };
@@ -45,6 +48,8 @@ export function ClassSettingsModal({
   initialDescription,
   initialTutorNotes,
   initialCycleHours,
+  initialPaymentAmount,
+  initialPaymentCurrency,
   isCreator,
   onClose,
 }: ClassSettingsModalProps) {
@@ -57,6 +62,10 @@ export function ClassSettingsModal({
   const [description, setDescription] = useState(initialDescription ?? "");
   const [tutorNotes, setTutorNotes] = useState(initialTutorNotes ?? "");
   const [cycleHours, setCycleHours] = useState(String(initialCycleHours));
+  const [paymentAmount, setPaymentAmount] = useState(
+    initialPaymentAmount != null ? String(initialPaymentAmount) : ""
+  );
+  const [paymentCurrency, setPaymentCurrency] = useState(initialPaymentCurrency ?? "GEL");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -64,25 +73,28 @@ export function ClassSettingsModal({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setSaveError(null);
-    const { error } = await supabase
-      .from("classes")
-      .update({
-        title: name.trim(),
-        subject: subject.trim() || null,
-        level: level.trim() || null,
-        description: description.trim() || null,
-        tutor_notes: tutorNotes.trim() || null,
-        cycle_hours: parseInt(cycleHours) || initialCycleHours,
-      })
-      .eq("id", classId);
+    // Goes through the server action so the per-cycle payment persists on the
+    // open cycle — the same path the dashboard "Edit class" modal uses.
+    const { error } = await updateClass({
+      classId,
+      title: name,
+      subject,
+      level,
+      description,
+      tutorNotes,
+      cycleHours: parseInt(cycleHours) || initialCycleHours,
+      paymentAmount: paymentAmount ? parseFloat(paymentAmount) : null,
+      paymentCurrency,
+    });
     setSaving(false);
     if (error) {
-      setSaveError(error.message);
+      setSaveError(error);
       return;
     }
     onClose();
@@ -99,17 +111,26 @@ export function ClassSettingsModal({
     router.push("/dashboard");
   }
 
-  // Soft-delete the class and its content (mark deleted_at), then leave.
+  // Soft-delete the class + its content and purge its storage files. Runs in a
+  // single server action so it can't hang half-done, and errors surface instead
+  // of leaving the button spinning.
   async function handleDelete() {
     setDeleting(true);
-    const stamp = new Date().toISOString();
-    await supabase.from("lessons").update({ deleted_at: stamp }).eq("class_id", classId);
-    await supabase.from("homework").update({ deleted_at: stamp }).eq("class_id", classId);
-    await supabase.from("materials").update({ deleted_at: stamp }).eq("class_id", classId);
-    await supabase.from("material_groups").update({ deleted_at: stamp }).eq("class_id", classId);
-    await supabase.from("class_members").delete().eq("class_id", classId);
-    await supabase.from("classes").update({ deleted_at: stamp } as never).eq("id", classId);
-    router.push("/dashboard");
+    setDeleteError(null);
+    try {
+      const { error } = await deleteClass(classId);
+      if (error) {
+        setDeleteError(error);
+        setDeleting(false);
+        return;
+      }
+      onClose();
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setDeleteError("Could not delete the class. Please try again.");
+      setDeleting(false);
+    }
   }
 
   if (typeof document === "undefined") return null;
@@ -192,6 +213,31 @@ export function ClassSettingsModal({
                   />
                 </Field>
 
+                <div className="border-t border-line pt-3">
+                  <Field label="Payment per cycle" htmlFor="cs-amount" optional>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        id="cs-amount"
+                        type="number"
+                        min={0}
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                        placeholder="e.g. 200"
+                      />
+                      <select
+                        value={paymentCurrency}
+                        onChange={(e) => setPaymentCurrency(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-line-2 bg-surface px-3 text-sm text-ink outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30"
+                      >
+                        <option value="GEL">GEL — Lari</option>
+                        <option value="USD">USD — Dollar</option>
+                        <option value="EUR">EUR — Euro</option>
+                        <option value="RUB">RUB — Ruble</option>
+                      </select>
+                    </div>
+                  </Field>
+                </div>
+
                 {saveError ? (
                   <div className="rounded-lg bg-danger-tint px-3 py-2 text-[12px] text-danger">
                     {saveError}
@@ -222,6 +268,11 @@ export function ClassSettingsModal({
                       Permanently delete this class, all lessons, homework, and materials? This
                       cannot be undone.
                     </p>
+                    {deleteError ? (
+                      <p className="rounded-lg bg-danger-tint px-3 py-2 text-[12px] text-danger">
+                        {deleteError}
+                      </p>
+                    ) : null}
                     <div className="flex gap-2">
                       <Button variant="secondary" size="sm" className="flex-1" onClick={() => setConfirmDelete(false)}>
                         Cancel

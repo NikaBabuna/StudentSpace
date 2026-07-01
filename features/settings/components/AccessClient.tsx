@@ -4,7 +4,7 @@
  * Role: Parents search for child by email, view linked children/parents,
  *       remove links or send new parent_requests.
  * Dependencies: settings/actions, components/ui, page-container
- * Used by: app/settings/access/page.tsx
+ * Used by: app/(shell)/settings/access/page.tsx
  * Inputs: current user id, linked parents/children from server
  * Outputs: Forms and lists for family access management
  * ========================================================================== */

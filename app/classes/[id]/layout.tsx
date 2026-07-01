@@ -43,7 +43,7 @@ export default async function ClassLayout({
       supabase.from("users").select("full_name").eq("id", user.id).single(),
       supabase
         .from("payment_cycles")
-        .select("id, cycle_number, closed_at")
+        .select("id, cycle_number, closed_at, payment_amount, payment_currency")
         .eq("class_id", id)
         .order("cycle_number", { ascending: true }),
       supabase
@@ -94,6 +94,8 @@ export default async function ClassLayout({
     description: cls.description ?? null,
     tutor_notes: cls.tutor_notes ?? null,
     cycleHoursTarget: cycleTarget,
+    paymentAmount: openCycle?.payment_amount ?? null,
+    paymentCurrency: openCycle?.payment_currency ?? "GEL",
     isCreator: cls.created_by === user.id,
   };
 

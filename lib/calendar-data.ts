@@ -6,7 +6,7 @@
  *       loadDashboardData's parallel, waterfall-free pattern. Employers are
  *       redirected to their own area (they don't share this shell).
  * Dependencies: lib/auth, next/navigation, lib/types
- * Used by: app/calendar/page.tsx
+ * Used by: app/(shell)/calendar/page.tsx
  * Inputs: None (reads the current session)
  * Outputs: loadCalendarData() → user identity, classes (id/title/role), lessons
  * ========================================================================== */

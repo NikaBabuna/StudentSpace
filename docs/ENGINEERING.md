@@ -44,6 +44,7 @@ Client Components → server actions + storage uploads
 | Public | `/`, `/login`, `/signup` |
 | Auth | `/auth/callback`, `/auth/confirm` |
 | Dashboard | `/dashboard`, `/dashboard/analytics`, `/dashboard/classes` |
+| Calendar | `/calendar` — all classes; distinct from per-class `/classes/[id]/schedule` |
 | Inbox | `/inbox` |
 | Settings | `/settings/access`, `/settings/preferences` |
 | Classes | `/classes/new`, `/classes/[id]/overview`, `/classes/[id]/schedule`, `/classes/[id]/homework`, `/classes/[id]/homework/[hwId]`, `/classes/[id]/materials`, `/classes/[id]/chat`, `/classes/[id]/invite` |
@@ -51,11 +52,15 @@ Client Components → server actions + storage uploads
 
 ### Repository layout
 
+Dashboard-mode routes share one layout in `app/(shell)/` (sidebar + topbar). The `(shell)` folder is a Next.js route group — it does not appear in URLs.
+
 ```
 app/                          Routes only — thin server pages
+  (shell)/                    Shared AppShell: dashboard, calendar, inbox, settings, classes/new
 features/
   classes/                    Create class, members, invites
-  schedule/                   Lessons, recurring slots, payment cycles
+  calendar/                   Cross-class calendar UI
+  schedule/                   Per-class lessons, recurring slots, payment cycles
   homework/                   Assignments and submissions
   materials/                  File groups
   chat/                       Realtime messaging
@@ -68,7 +73,8 @@ components/
   shell/                      Sidebar, topbar, app shell
 lib/
   supabase/                   Browser, server, middleware clients
-  auth.ts                     Cached auth + membership guards
+  auth.ts                     Cached auth + membership guards (pages/layouts)
+  calendar-data.ts            Loader for /calendar
   payments.ts, homework.ts    Shared domain logic
   validation.ts               Zod schemas
   database.types.ts           Generated Supabase types
@@ -87,19 +93,20 @@ features/<domain>/
   lib/                    Domain-only helpers (optional)
 ```
 
-Classes with multiple action surfaces use an `actions/` subfolder (e.g. `features/classes/actions/create-class.ts`). Homework grading lives in `features/homework/submissions-actions.ts`.
+Classes with multiple action surfaces use an `actions/` subfolder (e.g. `features/classes/actions/create-class.ts`). Homework grading lives in `features/homework/submissions-actions.ts`. Use a second action file when a domain has a clearly separate mutation surface — do not split prematurely.
 
 ### Auth & roles
 
 - Users mirror from Supabase Auth into `public.users` via trigger.
 - Class membership: `class_members.role` = `tutor` | `student` | `parent` | `employer`.
-- Guards in `lib/auth.ts`: `requireAuth()`, `requireClassMember()`, `requireTutor()`, plus cached loaders (`getServerClient`, `getCurrentUser`, `getClassRow`, `getClassMembership`).
+- **Pages and layouts** — guards in `lib/auth.ts`: `requireAuth()`, `requireClassMember()`, `requireTutor()`, plus cached loaders (`getServerClient`, `getCurrentUser`, `getClassRow`, `getClassMembership`). These **redirect** on failure.
+- **Server actions** — re-check auth/role with local helpers that return `{ error: string | null }`. Do **not** import `redirect()` into actions; follow existing `features/**/actions.ts` patterns.
 - Employer accounts redirect to `/employer` (layout enforces `is_employer`).
 
 ### Conventions
 
 - **Routes stay thin.** Data fetching in `app/**/page.tsx`; UI in `features/`.
-- **Mutations** live in `features/**/actions.ts` — never write to Supabase from client components.
+- **Mutations** live in `features/**/actions.ts` or `features/**/actions/*.ts` — never write to Supabase from client components.
 - **Server loaders:** use cached `lib/auth.ts` helpers; batch reads with `Promise.all`.
 - **Styling:** design tokens + `components/ui/*` — no raw hex.
 - **Validation:** Zod in `lib/validation.ts`.
@@ -132,7 +139,7 @@ npm run dev
 | --- | --- |
 | `npm run dev` | Dev server at localhost:3000 |
 | `npm run build` | Production build |
-| `npm test` | Vitest (`lib/payments`, `lib/homework`) |
+| `npm test` | Vitest (`lib/**/*.test.ts`, `features/**/*.test.ts`) |
 | `npm run lint` | ESLint |
 
 ### Migrations
@@ -181,7 +188,7 @@ Hosted on **Vercel** + **Supabase** (EU Central).
 ### Smoke test
 
 - [ ] Sign up → verify → log in
-- [ ] Dashboard → class → schedule, homework, materials, chat
+- [ ] Dashboard → calendar, class → schedule, homework, materials, chat
 - [ ] Tutor posts homework; student submits
 - [ ] Employer lands on `/employer`
 - [ ] Log out works
@@ -217,4 +224,4 @@ Geist (`font-sans`) for UI · Newsreader (`font-serif`) for headings · Geist Mo
 - ✅ Compose `Card` + `Button` + `Field` with token utilities
 - ❌ Inline hex styles or new `--color-ss-*` references
 
-Employer portal (`features/employer/`) still uses legacy inline styles — see [ROADMAP.md](ROADMAP.md).
+Employer portal shell uses the design system; tab content is placeholder until rebuild (see [ROADMAP.md](ROADMAP.md)).

@@ -76,14 +76,21 @@ function EditClassModal({ cls, onClose }: { cls: DashboardClassRow; onClose: () 
 
   async function handleDelete() {
     setDeleting(true);
-    const { error } = await deleteClass(cls.id);
-    if (error) {
+    setError(null);
+    try {
+      const { error } = await deleteClass(cls.id);
+      if (error) {
+        setError(error);
+        setDeleting(false);
+        return;
+      }
+      onClose();
+      router.push("/dashboard/classes");
+      router.refresh();
+    } catch {
+      setError("Could not delete the class. Please try again.");
       setDeleting(false);
-      setError(error);
-      return;
     }
-    router.push("/dashboard/classes");
-    router.refresh();
   }
 
   return (

@@ -24,7 +24,7 @@ Path from **feature-complete V1** to **hardened production** for a small tutorin
 
 1. **Storage** — Signed-URL code and policy SQL exist; buckets may still be public until manually flipped in Supabase.
 2. **RLS** — Policy SQL is in repo (`0002`, `0003`, `0004`); migration notes say policies are applied in production, but there is no automated role × table test matrix.
-3. **Code quality** — ESLint reports `no-explicit-any` errors (concentrated in `app/dashboard/analytics/page.tsx`, `lib/dashboard-data.ts`; the employer loaders that held the rest were removed when the portal was gated). CI lint is informational (`continue-on-error: true`).
+3. **Code quality** — ESLint reports `no-explicit-any` errors (concentrated in `app/(shell)/dashboard/analytics/page.tsx`, `lib/dashboard-data.ts`; the employer loaders that held the rest were removed when the portal was gated). CI lint is informational (`continue-on-error: true`).
 4. **Employer UI** — ✅ Resolved. The legacy inline-style portal was removed; `EmployerShell` now uses the design system and the tabs are gated as "coming soon" pending a rebuild.
 
 ---
@@ -88,7 +88,7 @@ Path from **feature-complete V1** to **hardened production** for a small tutorin
 
 | # | Task | Status | Notes |
 | --- | --- | --- | --- |
-| 2.1 | **Fix `no-explicit-any`** | Open | Concentrated in analytics data loaders. Target files: `app/dashboard/analytics/page.tsx`, `lib/dashboard-data.ts`. (The employer loaders that held the rest were removed when the portal was gated.) |
+| 2.1 | **Fix `no-explicit-any`** | Open | Concentrated in analytics data loaders. Target files: `app/(shell)/dashboard/analytics/page.tsx`, `lib/dashboard-data.ts`. (The employer loaders that held the rest were removed when the portal was gated.) |
 | 2.2 | **Lint as CI gate** | Open | Set `continue-on-error: false` in `.github/workflows/ci.yml` after 2.1. |
 | 2.3 | **Playwright happy path** | Open | Login → dashboard → class → post homework → student submit. Not in `package.json` yet. |
 | 2.4 | **Sentry source maps** | Open | Config supports upload; set `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` on Vercel for readable stack traces. |

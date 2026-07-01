@@ -1,5 +1,5 @@
 /* =============================================================================
- * app/dashboard/error.tsx — dashboard error boundary
+ * app/(shell)/dashboard/error.tsx — dashboard error boundary
  * ========================================================================== */
 "use client";
 

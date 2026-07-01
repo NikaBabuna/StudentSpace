@@ -162,8 +162,9 @@ Open registration in V1 (no tutor-approval queue). Signup offers **personal** or
 
 ### Schedule
 
-- Weekly calendar; colour-coded lesson status.
-- Makeups link via `replaces_lesson_id`.
+- **Per-class tab** (`/classes/[id]/schedule`): weekly view, payment cycles, lesson CRUD.
+- **Cross-class calendar** (`/calendar`): all lessons across the user's classes in one view.
+- Colour-coded lesson status; makeups link via `replaces_lesson_id`.
 - Recurring weekly slots (`recurring_schedules` + migration `0004_recurring_lessons.sql`).
 - Lesson times stored in the tutor's timezone.
 
@@ -189,7 +190,7 @@ Open registration in V1 (no tutor-approval queue). Signup offers **personal** or
 
 ### Employer portal
 
-- Separate layout. Tutor/student grid, person detail pages, inbox, analytics.
+- Separate layout at `/employer`. Shell uses the design system; tab content is placeholder ("coming in the next update") pending rebuild of overview, analytics, inbox, and settings.
 
 ---
 

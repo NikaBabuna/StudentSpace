@@ -5,7 +5,7 @@
  *       Components and actions. Redirects on failure; returns verified data on
  *       success. React.cache() dedupes reads within one request.
  * Dependencies: lib/supabase/server.ts, lib/types (ClassRole)
- * Used by: app route pages, app/classes/[id]/layout.tsx, some actions
+ * Used by: Protected app route pages and layouts (not server actions)
  * Inputs: classId, userId where applicable
  * Outputs: User, membership row, class row; or redirect to /login
  * Note: App-layer guards until RLS is fully verified in production.

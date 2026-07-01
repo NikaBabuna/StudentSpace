@@ -34,8 +34,6 @@ export type ClassEarningsSummary = {
   cycleHours: number;
   cycleTarget: number;
   earnedInPeriod: number;
-  projectedAmount: number;
-  projectedDate: Date | null;
   isOpen: boolean;
 };
 
@@ -74,29 +72,77 @@ export function hoursForCycle(
     .reduce((s, l) => s + (l.duration_hours ?? 0), 0);
 }
 
-export function projectCycleCloseDate(
-  classId: string,
-  cycleTarget: number,
-  cycleHoursDone: number,
-  lessons: EarningsLesson[]
-): Date | null {
-  const remaining = Math.max(cycleTarget - cycleHoursDone, 0);
-  if (remaining <= 0) return null;
+/** A single projected cycle payout: a class's cycle closing on a future date. */
+export type ProjectedPayout = {
+  classId: string;
+  title: string;
+  cycleNumber: number;
+  /** When the cycle is projected to close (date of the lesson that fills it). */
+  date: Date;
+  /** Payment for that cycle, in the display currency. */
+  amount: number;
+};
 
-  const fourWeeksAgo = new Date(Date.now() - 28 * 86400000);
-  const recentHours = lessons
-    .filter(
-      (l) =>
-        l.class_id === classId &&
-        l.status === "completed" &&
-        new Date(l.scheduled_at) >= fourWeeksAgo
-    )
-    .reduce((s, l) => s + (l.duration_hours ?? 0), 0);
-  const weeklyPace = Math.max(recentHours / 4, 0.5);
-  const days = Math.ceil((remaining / weeklyPace) * 7);
-  const projected = new Date();
-  projected.setDate(projected.getDate() + days);
-  return projected;
+/**
+ * Project future cycle payouts from the scheduled-lesson pipeline. For each
+ * class with an open, priced cycle, walk its upcoming scheduled lessons in date
+ * order, accumulating hours on top of what the open cycle already has. Every
+ * time the running total reaches the cycle target, that cycle "closes" on that
+ * lesson's date and earns the per-cycle payment; the next cycle then starts
+ * filling. Future cycles are priced at the open cycle's current rate.
+ *
+ * The result answers "by what date will X be paid if all scheduled lessons are
+ * completed" — one entry per projected cycle, sorted by date.
+ */
+export function buildProjectedPayouts(
+  classes: { id: string; title: string; cycle_hours?: number }[],
+  cycles: EarningsCycle[],
+  lessons: EarningsLesson[],
+  convert: (amount: number, from: string) => number,
+  from: Date = new Date()
+): ProjectedPayout[] {
+  const payouts: ProjectedPayout[] = [];
+
+  for (const cls of classes) {
+    const classCycles = cycles
+      .filter((c) => c.class_id === cls.id)
+      .sort((a, b) => a.cycle_number - b.cycle_number);
+    const openCycle = classCycles.find((c) => !c.closed_at);
+    if (!openCycle) continue;
+
+    const amount = convert(openCycle.payment_amount ?? 0, openCycle.payment_currency ?? "GEL");
+    const target = cls.cycle_hours ?? 8;
+    if (amount <= 0 || target <= 0) continue;
+
+    const upcoming = lessons
+      .filter(
+        (l) =>
+          l.class_id === cls.id &&
+          l.status === "scheduled" &&
+          new Date(l.scheduled_at) >= from
+      )
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+
+    let filled = hoursForCycle(openCycle, lessons); // hours already banked in the open cycle
+    let cycleNumber = openCycle.cycle_number;
+
+    for (const l of upcoming) {
+      filled += l.duration_hours ?? 0;
+      while (filled >= target) {
+        payouts.push({
+          classId: cls.id,
+          title: cls.title,
+          cycleNumber,
+          date: new Date(l.scheduled_at),
+          amount,
+        });
+        filled -= target;
+        cycleNumber += 1;
+      }
+    }
+  }
+
+  return payouts.sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
 export function buildClassEarningsSummaries(
@@ -130,16 +176,6 @@ export function buildClassEarningsSummaries(
       })
       .reduce((s, c) => s + convert(c.payment_amount ?? 0, c.payment_currency ?? "GEL"), 0);
 
-    const projectedAmount =
-      openCycle && (openCycle.payment_amount ?? 0) > 0
-        ? convert(openCycle.payment_amount ?? 0, openCycle.payment_currency ?? "GEL")
-        : 0;
-
-    const projectedDate =
-      openCycle && projectedAmount > 0
-        ? projectCycleCloseDate(cls.id, target, cycleHours, lessons)
-        : null;
-
     return {
       classId: cls.id,
       title: cls.title,
@@ -147,8 +183,6 @@ export function buildClassEarningsSummaries(
       cycleHours,
       cycleTarget: target,
       earnedInPeriod,
-      projectedAmount,
-      projectedDate,
       isOpen: !!openCycle,
     };
   });

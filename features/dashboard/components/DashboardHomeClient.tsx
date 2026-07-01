@@ -4,7 +4,7 @@
  * Role: Renders greeting, stat cards, upcoming lessons, homework attention,
  *       and class shortcuts. Data is preloaded by loadDashboardData().
  * Dependencies: class-shared (ClassCard), components/ui
- * Used by: app/dashboard/page.tsx
+ * Used by: app/(shell)/dashboard/page.tsx
  * Inputs: Serializable props from server loader (stats, classes, sessions)
  * Outputs: Interactive dashboard home (links, no mutations here)
  * ========================================================================== */

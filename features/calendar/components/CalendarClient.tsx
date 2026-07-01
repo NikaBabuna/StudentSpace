@@ -7,7 +7,7 @@
  *       dialog; non-tutors get a read-only view. Permission is per-class.
  * Dependencies: schedule/actions, schedule-utils, calendar-utils, calendar
  *               dialogs, components/ui, icons
- * Used by: app/calendar/page.tsx
+ * Used by: app/(shell)/calendar/page.tsx
  * ========================================================================== */
 "use client";
 

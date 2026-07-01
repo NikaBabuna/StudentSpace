@@ -61,7 +61,7 @@ The codebase is a **Next.js 16 App Router** app with **Supabase** (PostgreSQL, A
 ## 3. Request lifecycle
 
 1. **Incoming request** hits `proxy.ts` (Next.js 16 “proxy”, formerly middleware).
-2. **`lib/supabase/middleware.ts`** refreshes the Supabase session cookie and redirects unauthenticated users away from protected prefixes (`/dashboard`, `/classes`, `/inbox`, `/settings`, `/employer`).
+2. **`lib/supabase/middleware.ts`** refreshes the Supabase session cookie and redirects unauthenticated users away from protected prefixes (`/dashboard`, `/calendar`, `/classes`, `/inbox`, `/settings`, `/employer`).
 3. **Route handler** (`app/**/page.tsx` or `route.ts`) runs as a Server Component.
 4. **Auth** — `requireAuth()`, `requireClassMember()`, or layout-specific checks (`employer` gate).
 5. **Data** — batched Supabase reads via `getServerClient()`; attachments signed via `lib/storage.ts`.
@@ -74,7 +74,7 @@ The codebase is a **Next.js 16 App Router** app with **Supabase** (PostgreSQL, A
 
 | Public | Protected (session required) |
 | --- | --- |
-| `/`, `/login`, `/signup` | `/dashboard/**` |
+| `/`, `/login`, `/signup` | `/dashboard/**`, `/calendar` |
 | `/auth/callback`, `/auth/confirm` | `/classes/**`, `/inbox`, `/settings/**`, `/employer/**` |
 
 ---
@@ -112,7 +112,7 @@ studentspace/
 | `lib/supabase/client.ts` | Browser Supabase client | `@supabase/ssr`, env vars | Login/signup pages, client components, Realtime, storage uploads | `createClient()` |
 | `lib/supabase/server.ts` | Server Supabase client (cookie-based SSR) | `next/headers`, `@supabase/ssr` | Server Components, server actions | `createClient()` |
 | `lib/supabase/middleware.ts` | Session refresh + protected-route redirect | `@supabase/ssr` | `proxy.ts` | `updateSession()` |
-| `lib/auth.ts` | Cached auth guards and membership loaders | `lib/supabase/server`, `lib/types` | All protected routes and actions | `requireAuth`, `requireClassMember`, `requireTutor`, `getServerClient`, `getCurrentUser`, `getClassRow`, `getClassMembership` |
+| `lib/auth.ts` | Cached auth guards and membership loaders | `lib/supabase/server`, `lib/types` | Protected pages and layouts (not server actions) | `requireAuth`, `requireClassMember`, `requireTutor`, `getServerClient`, `getCurrentUser`, `getClassRow`, `getClassMembership` |
 | `lib/types.ts` | Client-safe domain types | — | Features, components | `ClassRole`, `Attachment`, `ClassSummary`, `toAttachments()` |
 | `lib/database.types.ts` | **Generated** Supabase TypeScript types | — | All Supabase clients | `Database` |
 | `lib/validation.ts` | Zod schemas shared by client + server | `zod` | Forms, server actions | `signupSchema`, `classCreateSchema`, `homeworkSchema`, `lessonSchema`, `firstError()` |
@@ -121,8 +121,10 @@ studentspace/
 | `lib/payments.ts` | Pure payment-cycle math (A2 overflow rollover) | — | `schedule/actions`, tests | `sumCompletedHours`, `computeCycleClose` |
 | `lib/homework.ts` | Pure deadline/submission rules | — | Homework UI, actions, tests | `deadlineStatus`, `canSubmit` |
 | `lib/storage.ts` | Signed URL helpers for private buckets | Supabase storage API | Pages loading attachments | `signStoredUrl`, `signAttachments`, bucket constants |
-| `lib/dashboard-data.ts` | Batched queries for dashboard home | `lib/auth`, `lib/dashboard-stats` | `app/dashboard/page.tsx` | `loadDashboardData()` |
+| `lib/dashboard-data.ts` | Batched queries for dashboard home | `lib/auth`, `lib/dashboard-stats` | `app/(shell)/dashboard/page.tsx` | `loadDashboardData()` |
 | `lib/dashboard-stats.ts` | Stat card builders and greeting | — | `dashboard-data`, analytics | `buildDashboardStats`, `greetingForHour` |
+| `lib/calendar-data.ts` | Batched queries for cross-class calendar | `lib/auth` | `app/(shell)/calendar/page.tsx` | `loadCalendarData()` |
+| `lib/recent-classes.ts` | Client-side recent-class visit tracking | `localStorage` | `DashboardHomeClient`, `RecordClassVisit` | `readRecentClassVisits`, `recordClassVisit` |
 | `lib/payments.test.ts` | Unit tests for cycle math | `vitest`, `lib/payments` | CI | — |
 | `lib/homework.test.ts` | Unit tests for deadline logic | `vitest`, `lib/homework` | CI | — |
 
@@ -154,6 +156,7 @@ Reusable, token-styled building blocks. No business logic. Compose these in feat
 | `app-shell.tsx` | Main layout: fixed sidebar + sticky topbar + scrollable main |
 | `auth-shell.tsx` | Centered card layout for login/signup |
 | `sidebar.tsx` | Navigation (dashboard vs in-class modes) |
+| `mobile-nav.tsx` | Mobile drawer nav (used by `AppShell` / `EmployerShell`) |
 | `topbar.tsx` | Breadcrumb, theme toggle slot, actions |
 | `page-container.tsx` | Consistent horizontal padding/max-width |
 | `theme-toggle.tsx` | Dark/light switch (`data-theme` on `<html>`) |
@@ -189,6 +192,19 @@ Each folder follows: `actions.ts` (mutations), `components/*Client.tsx` (interac
 | `components/MembersButton.tsx` | Roster popover in class header |
 | `lib/new-class-utils.ts` | Level chip styling, effective level string |
 
+#### `features/calendar/`
+
+Cross-class calendar at `/calendar`. Distinct from per-class schedule (`features/schedule/` + `/classes/[id]/schedule`).
+
+| File | Role |
+| --- | --- |
+| `components/CalendarClient.tsx` | Multi-class calendar grid; lesson drill-down |
+| `components/CalendarLessonDialog.tsx` | View/edit a lesson from the calendar |
+| `components/AddLessonDialog.tsx` | Quick-add lesson from calendar |
+| `lib/calendar-utils.ts` | Date grid helpers, lesson positioning |
+
+Data loader: `lib/calendar-data.ts` (not in this folder — shared infra pattern like `lib/dashboard-data.ts`).
+
 #### `features/dashboard/`
 
 | File | Role |
@@ -196,16 +212,25 @@ Each folder follows: `actions.ts` (mutations), `components/*Client.tsx` (interac
 | `actions.ts` | `updateClass`, `deleteClass` |
 | `components/DashboardHomeClient.tsx` | Home: stats, today’s sessions, homework attention |
 | `components/ClassesClient.tsx` | Class list with grouping |
-| `components/AnalyticsClient.tsx` | Range-filtered analytics charts |
+| `components/AnalyticsClient.tsx` | Range-filtered analytics shell |
+| `components/analytics-charts.tsx` | Chart implementations (attendance, homework, earnings) |
+| `components/EarningsAnalytics.tsx`, `LessonActivityAnalytics.tsx` | Analytics section panels |
+| `components/AnalyticsRangePicker.tsx` | Date-range control |
 | `components/class-shared.tsx` | `ClassCard`, `ClassGroup` shared list items |
+| `lib/load-analytics-data.ts` | Batched analytics queries |
+| `lib/analytics-aggregation.ts`, `earnings-aggregation.ts`, `lesson-activity-aggregation.ts`, `homework-stats.ts` | Pure aggregation helpers (+ `.test.ts` where present) |
+| `hooks/use-chart-focus.ts` | Chart interaction state |
 
 #### `features/schedule/`
+
+Per-class weekly schedule and payment cycles at `/classes/[id]/schedule`.
 
 | File | Role |
 | --- | --- |
 | `actions.ts` | Lesson CRUD, complete/miss/cancel, recurring schedules, `markCyclePaid` |
-| `components/ScheduleClient.tsx` | Weekly calendar, cycle sidebar, lesson actions |
+| `components/ScheduleClient.tsx` | Weekly view, cycle sidebar, lesson actions |
 | `components/ScheduleLessonDialog.tsx` | Add single or recurring lessons |
+| `components/LessonOccurrenceDialog.tsx` | Edit one occurrence of a recurring lesson |
 | `components/LessonScheduleFields.tsx` | Shared form fields + validation helpers |
 | `lib/schedule-utils.ts` | Date/time formatting, lesson status badges, recurrence labels |
 
@@ -254,6 +279,8 @@ design system (the legacy inline-style version was removed).
 
 Routes are **Server Components** unless noted. They authenticate, fetch, sign URLs, and pass props to client components.
 
+**Route group `app/(shell)/`** — Dashboard-mode pages share `AppShell` (sidebar + topbar). The `(shell)` segment is omitted from URLs.
+
 #### Root and auth
 
 | File | Role |
@@ -267,14 +294,20 @@ Routes are **Server Components** unless noted. They authenticate, fetch, sign UR
 | `auth/callback/route.ts` | PKCE OAuth code exchange |
 | `auth/confirm/route.ts` | Email OTP verification |
 
-#### Dashboard
+#### Dashboard shell (`app/(shell)/`)
 
 | File | Role |
 | --- | --- |
-| `dashboard/page.tsx` | Tutor home via `loadDashboardData()` |
-| `dashboard/classes/page.tsx` | Class list |
-| `dashboard/analytics/page.tsx` | Analytics |
-| `dashboard/loading.tsx`, `error.tsx` | Boundaries |
+| `(shell)/layout.tsx` | Persistent `AppShell` for dashboard-mode routes |
+| `(shell)/dashboard/page.tsx` | Tutor home via `loadDashboardData()` |
+| `(shell)/dashboard/classes/page.tsx` | Class list |
+| `(shell)/dashboard/analytics/page.tsx` | Analytics |
+| `(shell)/calendar/page.tsx` | Cross-class calendar via `loadCalendarData()` |
+| `(shell)/inbox/page.tsx` | Pending invites and parent requests |
+| `(shell)/settings/access/page.tsx` | Parent-child linking |
+| `(shell)/settings/preferences/page.tsx` | Preferences placeholder |
+| `(shell)/classes/new/page.tsx` | New class wizard |
+| `(shell)/**/loading.tsx`, `(shell)/dashboard/error.tsx` | Boundaries |
 
 #### Classes
 
@@ -290,14 +323,6 @@ Routes are **Server Components** unless noted. They authenticate, fetch, sign UR
 | `classes/[id]/chat/page.tsx` | Re-exports `ChatPage` |
 | `classes/[id]/invite/page.tsx` | Invite members |
 | `classes/[id]/loading.tsx`, `error.tsx` | Boundaries |
-
-#### Inbox and settings
-
-| File | Role |
-| --- | --- |
-| `inbox/page.tsx` | Pending invites and parent requests |
-| `settings/access/page.tsx` | Parent-child linking |
-| `settings/preferences/page.tsx` | Preferences placeholder |
 
 #### Employer portal
 
@@ -374,8 +399,8 @@ if (!result.error) router.refresh();
 | --- | --- | --- |
 | Session cookie refresh | `proxy.ts` → `middleware.ts` | Keep users logged in |
 | Route gate | `middleware.ts` | Block unauthenticated access to app areas |
-| Page guards | `lib/auth.ts` | `requireAuth`, membership checks |
-| Action guards | Each `features/**/actions.ts` | Re-check role before writes |
+| Page guards | `lib/auth.ts` | `requireAuth`, membership checks — **redirect** on failure |
+| Action guards | Each `features/**/actions.ts` | Local helpers return `{ error }` — **never** `redirect()` |
 | Employer redirect | `app/employer/layout.tsx` | `is_employer` users only |
 
 **Class roles** (`class_members.role`): `tutor` | `student` | `parent` | `employer`.
@@ -423,9 +448,11 @@ Attachment shape (jsonb):
 | Pattern | Example | Meaning |
 | --- | --- | --- |
 | `*Client.tsx` | `HomeworkClient.tsx` | `"use client"` interactive component |
+| `ScheduleClient` vs `CalendarClient` | `features/schedule/` vs `features/calendar/` | Per-class schedule tab vs cross-class `/calendar` |
 | `actions.ts` | `features/inbox/actions.ts` | Server actions for one domain |
-| `actions/*.ts` | `features/classes/actions/invite.ts` | Split actions when a domain is large |
-| `page.tsx` | `app/dashboard/page.tsx` | Route entry (Server Component) |
+| `actions/*.ts` | `features/classes/actions/invite.ts` | Split when a domain has several action surfaces |
+| `*-actions.ts` | `features/homework/submissions-actions.ts` | Secondary action file for a related surface |
+| `page.tsx` | `app/(shell)/dashboard/page.tsx` | Route entry (Server Component) |
 | `route.ts` | `app/auth/callback/route.ts` | API route handler |
 | `loading.tsx` / `error.tsx` | Per-route | Next.js Suspense / error boundaries |
 

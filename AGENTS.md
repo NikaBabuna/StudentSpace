@@ -9,8 +9,17 @@ This is **not** the Next.js you know. APIs and conventions may differ from your 
 | Doc | Use for |
 | --- | --- |
 | [docs/PRODUCT.md](docs/PRODUCT.md) | **Authoritative product spec** — schema, roles, business rules |
-| [docs/ENGINEERING.md](docs/ENGINEERING.md) | Architecture, dev setup, deployment, design system |
+| [docs/ENGINEERING.md](docs/ENGINEERING.md) | Conventions, dev setup, deployment, design system |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **File-by-file map** — routes, features, data flow |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Production hardening backlog |
+
+## Conventions (do not contradict ENGINEERING.md)
+
+- **Route group:** Dashboard-mode pages live under `app/(shell)/` (`/dashboard`, `/calendar`, `/inbox`, `/settings`, `/classes/new`). The `(shell)` segment is not part of the URL.
+- **Schedule vs calendar:** `/classes/[id]/schedule` = one class (`ScheduleClient`). `/calendar` = all classes (`CalendarClient` + `lib/calendar-data.ts`).
+- **Page auth:** Server pages and layouts use `lib/auth.ts` (`requireAuth`, `requireClassMember`, `requireTutor`) — they **redirect** on failure.
+- **Action auth:** Server actions use local helpers that return `{ error: string | null }` — **never** call `redirect()` from an action. Copy the pattern in existing `features/**/actions.ts` files.
+- **Action files:** One domain → `actions.ts`. Multiple surfaces → `actions/*.ts` (classes) or a second file (e.g. `submissions-actions.ts`).
 
 ## Facts (do not contradict PRODUCT.md)
 

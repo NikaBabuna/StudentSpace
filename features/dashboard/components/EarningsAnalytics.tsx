@@ -4,9 +4,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { IconButton } from "@/components/ui/icon-button";
+import { CloseIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { classColor } from "@/features/calendar/lib/calendar-utils";
 import AnalyticsRangePicker from "@/features/dashboard/components/AnalyticsRangePicker";
@@ -15,10 +18,12 @@ import { useChartFocus } from "@/features/dashboard/hooks/use-chart-focus";
 import {
   buildClassEarningsSummaries,
   buildEarningsChartData,
+  buildProjectedPayouts,
   computeHourlyRate,
   formatShortDate,
   type EarningsCycle,
   type EarningsLesson,
+  type ProjectedPayout,
 } from "@/features/dashboard/lib/earnings-aggregation";
 import {
   AnalyticsChartCard,
@@ -46,6 +51,7 @@ export default function EarningsAnalytics({
   convert: (amount: number, from: string) => number;
 }) {
   const [earningsRange, setEarningsRange] = useState<AnalyticsRange>("month");
+  const [showProjections, setShowProjections] = useState(false);
   const { pinned, highlight, clearFocus, pinFocus, hoverFocus } = useChartFocus<string>("data-earnings-pin");
 
   const sym = SYMS[currency] ?? currency;
@@ -60,11 +66,27 @@ export default function EarningsAnalytics({
     [tutorClasses, cycles, earningsRange, convert]
   );
 
+  // Projected cycle payouts from the scheduled-lesson pipeline. Not scoped to
+  // the range picker: it's a forward-looking view of what will be earned as the
+  // scheduled lessons are completed, and by when.
+  const payouts = useMemo(
+    () => buildProjectedPayouts(tutorClasses, cycles, lessons, convert),
+    [tutorClasses, cycles, lessons, convert]
+  );
+  const projectedTotal = payouts.reduce((s, p) => s + p.amount, 0);
+  const nextPayout = payouts[0] ?? null;
+  const nextPayoutByClass = useMemo(() => {
+    const map = new Map<string, ProjectedPayout>();
+    for (const p of payouts) if (!map.has(p.classId)) map.set(p.classId, p);
+    return map;
+  }, [payouts]);
+  const projectedByClass = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of payouts) map.set(p.classId, (map.get(p.classId) ?? 0) + p.amount);
+    return map;
+  }, [payouts]);
+
   const totalEarned = summaries.reduce((s, c) => s + c.earnedInPeriod, 0);
-  const projectedTotal = summaries.reduce((s, c) => s + (c.isOpen ? c.projectedAmount : 0), 0);
-  const nearestProjection = summaries
-    .filter((c) => c.projectedDate && c.projectedAmount > 0)
-    .sort((a, b) => (a.projectedDate!.getTime() > b.projectedDate!.getTime() ? 1 : -1))[0];
 
   const hourlyRate = useMemo(
     () => computeHourlyRate(cycles, lessons, earningsRange, convert),
@@ -74,7 +96,7 @@ export default function EarningsAnalytics({
   return (
     <AnalyticsChartCard
       title="Earnings"
-      description="Paid cycles, projections, and per-class breakdown over time"
+      description="Paid cycles, projected income from scheduled lessons, and per-class breakdown"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <AnalyticsRangePicker range={earningsRange} onChange={setEarningsRange} />
@@ -102,16 +124,27 @@ export default function EarningsAnalytics({
             {Math.round(totalEarned)}
           </div>
         </div>
-        <div>
+        <button
+          type="button"
+          onClick={() => setShowProjections(true)}
+          disabled={payouts.length === 0}
+          className="group -m-1 rounded-lg p-1 text-left transition-colors hover:bg-surface-2 disabled:cursor-default disabled:hover:bg-transparent"
+        >
           <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-muted">
-            {nearestProjection
-              ? `Projected for ${formatShortDate(nearestProjection.projectedDate!)}`
-              : "Projected"}
+            {nextPayout ? `Projected · next ${formatShortDate(nextPayout.date)}` : "Projected"}
           </div>
-          <div className="font-serif text-[22px] text-warn">
+          <div className="inline-flex items-center gap-1.5 font-serif text-[22px] text-warn">
             {projectedTotal > 0 ? `${sym}${Math.round(projectedTotal)}` : "—"}
+            {payouts.length > 0 ? (
+              <span className="text-[14px] text-muted transition-colors group-hover:text-accent">›</span>
+            ) : null}
           </div>
-        </div>
+          {payouts.length > 0 ? (
+            <div className="mt-0.5 text-[11px] text-muted group-hover:text-accent">
+              {payouts.length} cycle{payouts.length === 1 ? "" : "s"} · view breakdown
+            </div>
+          ) : null}
+        </button>
         <div>
           <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-muted">Mean hourly rate</div>
           <div className="font-serif text-[22px] text-ink">
@@ -200,21 +233,121 @@ export default function EarningsAnalytics({
                 </div>
               </div>
               <Progress value={pct} className="h-1.5" />
-              {row.isOpen && row.projectedAmount > 0 && row.projectedDate ? (
-                <div className="flex items-center justify-between gap-2 text-[11px]">
-                  <span className="text-warn">
-                    Projected for {formatShortDate(row.projectedDate)} · {sym}
-                    {Math.round(row.projectedAmount)}
-                  </span>
-                  <Badge tone="warn" className="text-[9px]">
-                    Open cycle
-                  </Badge>
-                </div>
-              ) : null}
+              {(() => {
+                const next = nextPayoutByClass.get(row.classId);
+                const totalProj = projectedByClass.get(row.classId) ?? 0;
+                if (!row.isOpen || !next || totalProj <= 0) return null;
+                return (
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="text-warn">
+                      Next cycle · {sym}
+                      {Math.round(next.amount)} by {formatShortDate(next.date)}
+                    </span>
+                    <Badge tone="warn" className="text-[9px]">
+                      {sym}
+                      {Math.round(totalProj)} projected
+                    </Badge>
+                  </div>
+                );
+              })()}
             </button>
           );
         })}
       </div>
+
+      {showProjections ? (
+        <ProjectionsDialog
+          payouts={payouts}
+          sym={sym}
+          total={projectedTotal}
+          onClose={() => setShowProjections(false)}
+        />
+      ) : null}
     </AnalyticsChartCard>
+  );
+}
+
+/** Breakdown of projected cycle payouts — which class earns what, and by when. */
+function ProjectionsDialog({
+  payouts,
+  sym,
+  total,
+  onClose,
+}: {
+  payouts: ProjectedPayout[];
+  sym: string;
+  total: number;
+  onClose: () => void;
+}) {
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="flex max-h-[85vh] w-full max-w-[520px] flex-col overflow-hidden rounded-2xl border border-line bg-bg shadow-[var(--shadow)]"
+        role="dialog"
+        aria-labelledby="projections-title"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
+          <div>
+            <h2 id="projections-title" className="text-[17px] font-semibold text-ink">
+              Projected earnings
+            </h2>
+            <p className="mt-0.5 text-[12px] text-muted">
+              As each cycle closes, if all scheduled lessons are completed
+            </p>
+          </div>
+          <IconButton aria-label="Close" onClick={onClose}>
+            <CloseIcon size={16} />
+          </IconButton>
+        </div>
+
+        <div className="flex flex-col gap-2 overflow-y-auto p-5">
+          {payouts.length === 0 ? (
+            <p className="text-[13px] text-muted">
+              No cycles are projected to close — schedule more lessons to see projections.
+            </p>
+          ) : (
+            payouts.map((p, i) => {
+              const color = classColor(p.classId);
+              return (
+                <div
+                  key={`${p.classId}-${p.cycleNumber}-${i}`}
+                  className="flex items-center gap-3 rounded-xl border border-line bg-surface-2 px-3.5 py-3"
+                >
+                  <span className="size-2.5 shrink-0 rounded-full" style={{ background: color.bar }} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[14px] font-semibold text-ink">{p.title}</div>
+                    <div className="text-[12px] text-muted">
+                      Cycle {p.cycleNumber} · closes {formatShortDate(p.date)}
+                    </div>
+                  </div>
+                  <div className="shrink-0 font-serif text-[16px] text-ink">
+                    {sym}
+                    {Math.round(p.amount)}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {payouts.length > 0 ? (
+          <div className="flex shrink-0 items-center justify-between border-t border-line px-5 py-4">
+            <span className="text-[13px] text-muted">Total projected</span>
+            <span className="font-serif text-[20px] text-warn">
+              {sym}
+              {Math.round(total)}
+            </span>
+          </div>
+        ) : null}
+      </div>
+    </div>,
+    document.body
   );
 }

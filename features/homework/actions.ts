@@ -13,6 +13,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { canSubmit } from "@/lib/homework";
 import { homeworkSchema, firstError } from "@/lib/validation";
+import { zonedWallClockToUtcIso } from "@/lib/time";
 import type { Attachment } from "@/lib/types";
 
 type Result = { error: string | null };
@@ -46,7 +47,9 @@ export async function createHomework(input: {
     created_by: ctx.user!.id,
     title: input.title,
     description: input.description || null,
-    deadline: new Date(input.deadline).toISOString(),
+    // The <input type="datetime-local"> value is a naive local wall-clock; the
+    // deadline the tutor picked is in app (Tbilisi) time, not the server's UTC.
+    deadline: zonedWallClockToUtcIso(input.deadline),
     attachments: input.attachments,
   });
 
@@ -70,7 +73,7 @@ export async function updateHomework(input: {
   const { error } = await ctx.supabase.from("homework").update({
     title: input.title,
     description: input.description || null,
-    deadline: new Date(input.deadline).toISOString(),
+    deadline: zonedWallClockToUtcIso(input.deadline),
     attachments: input.attachments,
   }).eq("id", input.hwId);
 

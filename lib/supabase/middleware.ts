@@ -2,8 +2,8 @@
  * lib/supabase/middleware.ts — session refresh and route protection
  * -----------------------------------------------------------------------------
  * Role: (1) Refresh Supabase auth cookies so Server Components stay logged in.
- *       (2) Redirect guests away from /dashboard, /classes, /inbox, /settings,
- *           /employer to /login.
+ *       (2) Redirect guests away from /dashboard, /calendar, /classes, /inbox,
+ *           /settings, /employer to /login.
  * Dependencies: @supabase/ssr, env vars, database.types
  * Used by: proxy.ts
  * Inputs: NextRequest (path, cookies)
@@ -18,6 +18,7 @@ import type { Database } from "@/lib/database.types";
 // login and email-confirmation flows stay reachable while logged out.
 const PROTECTED_PREFIXES = [
   "/dashboard",
+  "/calendar",
   "/classes",
   "/inbox",
   "/settings",

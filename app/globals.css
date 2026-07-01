@@ -228,9 +228,28 @@
   /* Native date/time picker indicator stays clickable; theme matching is handled
    * by `color-scheme` on the theme roots below. */
   input[type="date"]::-webkit-calendar-picker-indicator,
-  input[type="time"]::-webkit-calendar-picker-indicator {
+  input[type="time"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     cursor: pointer;
     opacity: 0.75;
+  }
+
+  /* Native <select>: the browser's default arrow renders as an ugly white box
+   * in the dark UI. Drop it (`appearance: none`) and paint our own themed
+   * chevron. `:not([multiple])` keeps specificity above the per-select padding
+   * utilities (px-3 / px-3.5) so the arrow always has reserved room. */
+  select:not([multiple]) {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23a0a4b0'%20stroke-width='2.25'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M6%209l6%206%206-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 1rem;
+    padding-right: 2.25rem;
+  }
+  [data-theme="light"] select:not([multiple]) {
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%237a786f'%20stroke-width='2.25'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M6%209l6%206%206-6'/%3E%3C/svg%3E");
   }
 
   /* Custom scrollbars that blend with the surface. */
