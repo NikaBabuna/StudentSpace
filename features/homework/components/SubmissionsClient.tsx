@@ -12,7 +12,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { BackLink } from "@/components/shell/back-link";
 
 import type { Attachment } from "@/lib/types";
 import { gradeSubmission } from "@/features/homework/submissions-actions";
@@ -100,12 +100,7 @@ export default function SubmissionsClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <Link
-        href={`/classes/${classId}/homework`}
-        className="text-[13px] font-medium text-muted transition-colors hover:text-accent"
-      >
-        ← Back to homework
-      </Link>
+      <BackLink href={`/classes/${classId}/homework`}>Back to homework</BackLink>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">

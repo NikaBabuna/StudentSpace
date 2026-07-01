@@ -149,7 +149,7 @@ function EditClassModal({ cls, onClose }: { cls: DashboardClassRow; onClose: () 
                   <select
                     value={paymentCurrency}
                     onChange={(e) => setPaymentCurrency(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-line-2 bg-surface px-3 text-sm text-ink outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30"
+                    className="h-11 w-full rounded-xl border border-line-2 bg-surface px-3 text-sm text-ink outline-none transition-colors hover:bg-surface-2 focus-visible:border-accent focus-visible:bg-surface focus-visible:ring-2 focus-visible:ring-accent/30"
                   >
                     <option value="GEL">GEL — Lari</option>
                     <option value="USD">USD — Dollar</option>

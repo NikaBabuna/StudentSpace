@@ -252,6 +252,18 @@
     background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%237a786f'%20stroke-width='2.25'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M6%209l6%206%206-6'/%3E%3C/svg%3E");
   }
 
+  /* Native number-input spinner: the up/down stepper reads as a stray system
+   * control against the editorial input styling — drop it in both engines. */
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
   /* Custom scrollbars that blend with the surface. */
   ::-webkit-scrollbar {
     width: 11px;

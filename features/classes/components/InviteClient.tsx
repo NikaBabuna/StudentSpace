@@ -18,13 +18,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { BackLink } from "@/components/shell/back-link";
 import { sendInvite } from "@/features/classes/actions/invite";
 
 type InviteRole = "student" | "parent" | "tutor" | "employer";
 
 // Shared select styling — matches the <Input> primitive (no Select primitive yet).
 const selectClass =
-  "h-11 w-full cursor-pointer rounded-xl border border-line-2 bg-surface px-3.5 text-sm text-ink outline-none transition-colors focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30";
+  "h-11 w-full cursor-pointer rounded-xl border border-line-2 bg-surface px-3.5 text-sm text-ink outline-none transition-colors hover:bg-surface-2 focus-visible:border-accent focus-visible:bg-surface focus-visible:ring-2 focus-visible:ring-accent/30";
 
 export default function InviteClient({ classId }: { classId: string }) {
   const supabase = createClient();
@@ -203,12 +204,7 @@ export default function InviteClient({ classId }: { classId: string }) {
       </Card>
 
       <div className="mt-4">
-        <Link
-          href={`/classes/${classId}/overview`}
-          className="text-[13px] text-muted transition-colors hover:text-ink-2"
-        >
-          ← Back to class
-        </Link>
+        <BackLink href={`/classes/${classId}/overview`}>Back to class</BackLink>
       </div>
     </div>
   );

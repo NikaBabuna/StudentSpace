@@ -13,6 +13,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ChevronLeftIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,7 +42,7 @@ import {
 import { createClassPipeline, lookupInviteEmail } from "@/features/classes/actions/create-class";
 
 const selectClass =
-  "h-11 w-full cursor-pointer rounded-xl border border-line-2 bg-surface px-3.5 text-sm text-ink outline-none transition-colors focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30";
+  "h-11 w-full cursor-pointer rounded-xl border border-line-2 bg-surface px-3.5 text-sm text-ink outline-none transition-colors hover:bg-surface-2 focus-visible:border-accent focus-visible:bg-surface focus-visible:ring-2 focus-visible:ring-accent/30";
 
 const chipBase =
   "cursor-pointer rounded-[11px] border px-3.5 py-2.5 text-sm transition-colors";
@@ -552,11 +553,13 @@ export default function NewClassForm() {
       <div className="mt-5 flex items-center justify-between gap-3">
         {step === 0 ? (
           <Button asChild variant="secondary" size="lg">
-            <Link href="/dashboard">← Cancel</Link>
+            <Link href="/dashboard">
+              <ChevronLeftIcon size={16} /> Cancel
+            </Link>
           </Button>
         ) : (
           <Button variant="secondary" size="lg" onClick={() => setStep((s) => s - 1)}>
-            ← Back
+            <ChevronLeftIcon size={16} /> Back
           </Button>
         )}
 

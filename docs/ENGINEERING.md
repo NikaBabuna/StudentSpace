@@ -222,6 +222,7 @@ Geist (`font-sans`) for UI · Newsreader (`font-serif`) for headings · Geist Mo
 ### Rules
 
 - ✅ Compose `Card` + `Button` + `Field` with token utilities
+- ✅ Use `BackLink` (`components/shell/back-link.tsx`) for in-page back navigation — not muted `←` text links
 - ❌ Inline hex styles or new `--color-ss-*` references
 
 Employer portal shell uses the design system; tab content is placeholder until rebuild (see [ROADMAP.md](ROADMAP.md)).

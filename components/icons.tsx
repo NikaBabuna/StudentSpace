@@ -125,8 +125,8 @@ export const InboxIcon = (p: IconProps) => (
 
 export const SettingsIcon = (p: IconProps) => (
   <Icon {...p}>
-    <circle cx="9" cy="9" r="2.3" />
-    <path d="M9 1.8v2M9 14.2v2M3.1 3.1l1.4 1.4M13.5 13.5l1.4 1.4M1.8 9h2M14.2 9h2M3.1 14.9l1.4-1.4M13.5 4.5l1.4-1.4" />
+    <path d="M9 2.2 11.5 4.67 14.89 5.6 14 9 14.89 12.4 11.5 13.33 9 15.8 6.5 13.33 3.11 12.4 4 9 3.11 5.6 6.5 4.67Z" />
+    <circle cx="9" cy="9" r="2.2" />
   </Icon>
 );
 

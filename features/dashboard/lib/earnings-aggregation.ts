@@ -84,15 +84,22 @@ export type ProjectedPayout = {
 };
 
 /**
- * Project future cycle payouts from the scheduled-lesson pipeline. For each
- * class with an open, priced cycle, walk its upcoming scheduled lessons in date
- * order, accumulating hours on top of what the open cycle already has. Every
- * time the running total reaches the cycle target, that cycle "closes" on that
- * lesson's date and earns the per-cycle payment; the next cycle then starts
- * filling. Future cycles are priced at the open cycle's current rate.
+ * Project the NEXT cycle payout per class from the scheduled-lesson pipeline.
+ * For each class with an open, priced cycle, walk its upcoming scheduled
+ * lessons in date order, accumulating hours on top of what the open cycle
+ * already has, and stop as soon as the running total reaches the cycle
+ * target — that's the one lesson whose date closes the class's next cycle.
  *
- * The result answers "by what date will X be paid if all scheduled lessons are
- * completed" — one entry per projected cycle, sorted by date.
+ * Deliberately one entry per class, not a chain of every future cycle: how
+ * far a class's projection could otherwise run depends on an unrelated
+ * implementation detail (how many weeks of recurring lessons happen to be
+ * materialised), which made the projection arbitrarily deep for whichever
+ * class had the longest lesson backlog. "Next cycle, per class" is the
+ * meaningful, comparable unit across classes.
+ *
+ * The result answers "by what date will each class next get paid if its
+ * already-scheduled lessons are completed" — at most one entry per class,
+ * sorted by date.
  */
 export function buildProjectedPayouts(
   classes: { id: string; title: string; cycle_hours?: number }[],
@@ -124,20 +131,18 @@ export function buildProjectedPayouts(
       .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
 
     let filled = hoursForCycle(openCycle, lessons); // hours already banked in the open cycle
-    let cycleNumber = openCycle.cycle_number;
 
     for (const l of upcoming) {
       filled += l.duration_hours ?? 0;
-      while (filled >= target) {
+      if (filled >= target) {
         payouts.push({
           classId: cls.id,
           title: cls.title,
-          cycleNumber,
+          cycleNumber: openCycle.cycle_number,
           date: new Date(l.scheduled_at),
           amount,
         });
-        filled -= target;
-        cycleNumber += 1;
+        break; // only the next cycle for this class
       }
     }
   }

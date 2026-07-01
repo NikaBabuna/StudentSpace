@@ -161,12 +161,15 @@ Reusable, token-styled building blocks. No business logic. Compose these in feat
 | `page-container.tsx` | Consistent horizontal padding/max-width |
 | `theme-toggle.tsx` | Dark/light switch (`data-theme` on `<html>`) |
 | `class-settings-modal.tsx` | Tutor class edit/delete modal |
+| `back-link.tsx` | Shared back navigation link (chevron + hover tint) |
 | `error-view.tsx` | Shared error boundary UI |
 | `loading-skeleton.tsx` | Route-level loading placeholders |
 
 #### `components/icons.tsx`
 
-SVG icon components used across the shell and features.
+SVG icon components used across the shell and features. `SettingsIcon` is a
+six-tooth cog outline with a center hole; `SunIcon` / `MoonIcon` are reserved for
+the theme toggle.
 
 ### 5.4 `features/` — Domain modules
 

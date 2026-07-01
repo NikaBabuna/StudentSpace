@@ -1,5 +1,28 @@
 # Changelog
 
+## Navigation polish — settings gear + back links
+
+### Summary
+
+The class settings control used a sun-ray icon that read as "brightness" rather than
+settings. Legacy back links (muted text + unicode arrow) were inconsistent with the
+rest of the shell nav.
+
+### Changes
+
+- **`components/icons.tsx`** — `SettingsIcon` redrawn as a six-tooth cog outline
+  (alternating inner/outer radius + center hole), matching the stroke icon set.
+- **New** `components/shell/back-link.tsx` — shared back navigation link (chevron +
+  hover surface tint, matching sidebar nav weight).
+- **`shell/sidebar.tsx`** — "All classes" back link uses `BackLink`.
+- **`InviteClient.tsx`**, **`SubmissionsClient.tsx`** — page-level back links use
+  `BackLink` instead of `←` text links.
+- **`NewClassForm.tsx`** — wizard Cancel/Back buttons use `ChevronLeftIcon` instead
+  of unicode arrows.
+- Docs updated (`ARCHITECTURE.md`, `ENGINEERING.md`).
+
+---
+
 ## Organisation (employer) portal — gated + de-legacied
 
 ### Summary

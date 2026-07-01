@@ -66,23 +66,24 @@ export default function EarningsAnalytics({
     [tutorClasses, cycles, earningsRange, convert]
   );
 
-  // Projected cycle payouts from the scheduled-lesson pipeline. Not scoped to
-  // the range picker: it's a forward-looking view of what will be earned as the
-  // scheduled lessons are completed, and by when.
+  // Next projected cycle payout per class, from the scheduled-lesson pipeline.
+  // Not scoped to the range picker: it's a forward-looking view of what each
+  // class will next pay out, and by when, if its already-scheduled lessons
+  // are completed. At most one entry per class (buildProjectedPayouts stops
+  // at the next cycle close — it doesn't chain further future cycles).
   const payouts = useMemo(
     () => buildProjectedPayouts(tutorClasses, cycles, lessons, convert),
     [tutorClasses, cycles, lessons, convert]
   );
   const projectedTotal = payouts.reduce((s, p) => s + p.amount, 0);
-  const nextPayout = payouts[0] ?? null;
-  const nextPayoutByClass = useMemo(() => {
+  // The headline date is the LAST class's next cycle to close — "if every
+  // class completes what's already scheduled, this is the total, and this
+  // is the day the last of it lands."
+  const lastPayout = payouts[payouts.length - 1] ?? null;
+
+  const payoutByClass = useMemo(() => {
     const map = new Map<string, ProjectedPayout>();
-    for (const p of payouts) if (!map.has(p.classId)) map.set(p.classId, p);
-    return map;
-  }, [payouts]);
-  const projectedByClass = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const p of payouts) map.set(p.classId, (map.get(p.classId) ?? 0) + p.amount);
+    for (const p of payouts) map.set(p.classId, p);
     return map;
   }, [payouts]);
 
@@ -105,7 +106,7 @@ export default function EarningsAnalytics({
           <select
             value={currency}
             onChange={(e) => onCurrencyChange(e.target.value)}
-            className="h-9 rounded-xl border border-line-2 bg-surface px-3 text-[12px] text-ink outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30"
+            className="h-9 rounded-xl border border-line-2 bg-surface px-3 text-[12px] text-ink outline-none transition-colors hover:bg-surface-2 focus-visible:border-accent focus-visible:bg-surface focus-visible:ring-2 focus-visible:ring-accent/30"
           >
             <option value="GEL">GEL — Georgian Lari</option>
             <option value="USD">USD — US Dollar</option>
@@ -131,7 +132,7 @@ export default function EarningsAnalytics({
           className="group -m-1 rounded-lg p-1 text-left transition-colors hover:bg-surface-2 disabled:cursor-default disabled:hover:bg-transparent"
         >
           <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-muted">
-            {nextPayout ? `Projected · next ${formatShortDate(nextPayout.date)}` : "Projected"}
+            {lastPayout ? `Projected · by ${formatShortDate(lastPayout.date)}` : "Projected"}
           </div>
           <div className="inline-flex items-center gap-1.5 font-serif text-[22px] text-warn">
             {projectedTotal > 0 ? `${sym}${Math.round(projectedTotal)}` : "—"}
@@ -141,7 +142,7 @@ export default function EarningsAnalytics({
           </div>
           {payouts.length > 0 ? (
             <div className="mt-0.5 text-[11px] text-muted group-hover:text-accent">
-              {payouts.length} cycle{payouts.length === 1 ? "" : "s"} · view breakdown
+              {payouts.length} {payouts.length === 1 ? "class" : "classes"} · view breakdown
             </div>
           ) : null}
         </button>
@@ -234,18 +235,16 @@ export default function EarningsAnalytics({
               </div>
               <Progress value={pct} className="h-1.5" />
               {(() => {
-                const next = nextPayoutByClass.get(row.classId);
-                const totalProj = projectedByClass.get(row.classId) ?? 0;
-                if (!row.isOpen || !next || totalProj <= 0) return null;
+                const p = payoutByClass.get(row.classId);
+                if (!row.isOpen || !p) return null;
                 return (
                   <div className="flex items-center justify-between gap-2 text-[11px]">
                     <span className="text-warn">
                       Next cycle · {sym}
-                      {Math.round(next.amount)} by {formatShortDate(next.date)}
+                      {Math.round(p.amount)} by {formatShortDate(p.date)}
                     </span>
                     <Badge tone="warn" className="text-[9px]">
-                      {sym}
-                      {Math.round(totalProj)} projected
+                      Cycle {p.cycleNumber}
                     </Badge>
                   </div>
                 );
@@ -299,7 +298,7 @@ function ProjectionsDialog({
               Projected earnings
             </h2>
             <p className="mt-0.5 text-[12px] text-muted">
-              As each cycle closes, if all scheduled lessons are completed
+              Each class&apos;s next cycle, based on lessons already scheduled
             </p>
           </div>
           <IconButton aria-label="Close" onClick={onClose}>
@@ -310,7 +309,7 @@ function ProjectionsDialog({
         <div className="flex flex-col gap-2 overflow-y-auto p-5">
           {payouts.length === 0 ? (
             <p className="text-[13px] text-muted">
-              No cycles are projected to close — schedule more lessons to see projections.
+              No class has enough scheduled lessons to close its next cycle yet.
             </p>
           ) : (
             payouts.map((p, i) => {

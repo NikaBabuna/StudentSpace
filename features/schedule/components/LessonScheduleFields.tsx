@@ -27,7 +27,7 @@ import {
 } from "@/features/schedule/lib/schedule-utils";
 
 const controlClass =
-  "h-11 w-full rounded-xl border border-line-2 bg-surface px-3.5 text-sm text-ink outline-none transition-colors focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/30";
+  "h-11 w-full rounded-xl border border-line-2 bg-surface px-3.5 text-sm text-ink outline-none transition-colors hover:bg-surface-2 focus-visible:border-accent focus-visible:bg-surface focus-visible:ring-2 focus-visible:ring-accent/30";
 
 function addDays(days: number) {
   const d = new Date();

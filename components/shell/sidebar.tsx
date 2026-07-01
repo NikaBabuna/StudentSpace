@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { IconButton } from "@/components/ui/icon-button";
 import { Progress } from "@/components/ui/progress";
+import { BackLink } from "./back-link";
 import { ClassSettingsModal } from "./class-settings-modal";
 import { useMobileNav } from "./mobile-nav";
 import {
@@ -29,7 +30,6 @@ import {
   LogoutIcon,
   SettingsIcon,
   CloseIcon,
-  ChevronLeftIcon,
   DashboardIcon,
   AnalyticsIcon,
   InboxIcon,
@@ -182,12 +182,9 @@ export function Sidebar({
           </>
         ) : student ? (
           <>
-            <Link
-              href="/dashboard/classes"
-              className="flex items-center gap-1.5 px-2 text-[12px] text-muted transition-colors hover:text-ink-2"
-            >
-              <ChevronLeftIcon size={14} /> All classes
-            </Link>
+            <BackLink href="/dashboard/classes" className="text-[12.5px]">
+              All classes
+            </BackLink>
 
             {/* Current class header with settings gear */}
             <div className="flex flex-col gap-3 border-b border-line pb-4">
