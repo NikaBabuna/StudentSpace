@@ -110,6 +110,25 @@ Classes with multiple action surfaces use an `actions/` subfolder (e.g. `feature
 - **Server loaders:** use cached `lib/auth.ts` helpers; batch reads with `Promise.all`.
 - **Styling:** design tokens + `components/ui/*` — no raw hex.
 - **Validation:** Zod in `lib/validation.ts`.
+- **Soft deletes:** every read of `users`/`classes`/`lessons`/`homework`/`materials`/`recurring_schedules` filters `.is("deleted_at", null)`.
+- **Abuse-prone actions** (anything that looks users up by email) call `checkRateLimit` from `lib/rate-limit.ts`.
+- **Failures:** unexpected errors in server actions return `actionFail(code, detail, context)` (`lib/log.ts`) — the raw detail goes to the logs under its [ERRORS.md](ERRORS.md) code; the user sees only the catalogued friendly message. Never return `error.message` from Supabase to the client.
+- **Tests:** pure logic ships with unit tests; coverage of pure modules is CI-gated — see [TESTING.md](TESTING.md). Quality bar and definition of done: [QUALITY.md](QUALITY.md).
+
+### Timezone rules (recurring bug source — read this)
+
+Timestamps are stored in UTC; the app reasons in one canonical zone,
+`APP_TIME_ZONE = "Asia/Tbilisi"` (`lib/time.ts`). Server Components and server
+actions run in the **host's** zone (UTC on Vercel), so bare date calls there
+silently render hours off and bucket "today" on the wrong day.
+
+| Context | Rule |
+| --- | --- |
+| Server code (pages, layouts, loaders, actions) | Never call bare `toLocale*`, `getHours()`, `toDateString()`, `setHours()`. Use `lib/time.ts`: `formatDateInZone`, `formatTimeInZone`, `dayKeyInZone`, `isSameDayInZone`, `hourInZone`, `calendarDayDiffInZone`. |
+| Storing a `datetime-local` input on the server | Convert with `zonedWallClockToUtcIso()` — never `new Date(value).toISOString()`. |
+| Client components | Plain `toLocale*` is fine — the browser's zone equals the app zone for real users. |
+
+Rationale and history: [DECISIONS.md §4](DECISIONS.md).
 
 ---
 
@@ -140,7 +159,8 @@ npm run dev
 | `npm run dev` | Dev server at localhost:3000 |
 | `npm run build` | Production build |
 | `npm test` | Vitest (`lib/**/*.test.ts`, `features/**/*.test.ts`) |
-| `npm run lint` | ESLint |
+| `npm run test:coverage` | Suite + coverage thresholds (what CI runs — see [TESTING.md](TESTING.md)) |
+| `npm run lint` | ESLint (standard: 0 errors, 0 warnings) |
 
 ### Migrations
 

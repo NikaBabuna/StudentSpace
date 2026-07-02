@@ -24,6 +24,18 @@ export type CalendarClass = {
   role: ClassRole;
 };
 
+/** Shape of the class_members → classes join used by loadCalendarData. */
+type MembershipRow = {
+  role: string;
+  classes: {
+    id: string;
+    title: string;
+    subject: string | null;
+    level: string | null;
+    deleted_at: string | null;
+  } | null;
+};
+
 export type CalendarLesson = {
   id: string;
   class_id: string;
@@ -60,11 +72,13 @@ export async function loadCalendarData(): Promise<CalendarData> {
 
   if (profile?.is_employer) redirect("/employer");
 
-  const classes: CalendarClass[] = (memberships ?? [])
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter((m: any) => m.classes && !m.classes.deleted_at)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((m: any) => ({
+  // Supabase's inferred join type is looser than what the query guarantees
+  // (single-object FK join) — narrow it once here instead of casting per use.
+  const classes: CalendarClass[] = ((memberships ?? []) as unknown as MembershipRow[])
+    .filter((m): m is MembershipRow & { classes: NonNullable<MembershipRow["classes"]> } =>
+      Boolean(m.classes && !m.classes.deleted_at)
+    )
+    .map((m) => ({
       id: m.classes.id,
       title: m.classes.title,
       subject: m.classes.subject,

@@ -12,6 +12,7 @@
 import Link from "next/link";
 
 import { getServerClient, requireAuth, getClassMembership, getClassRow } from "@/lib/auth";
+import { formatDateInZone, formatTimeInZone, isSameDayInZone } from "@/lib/time";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -181,10 +182,10 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
 
   const pendingGrade = allSubmissions.filter((s) => !s.grade).length;
 
+  // Server component — format in the app timezone, never the host's (UTC).
   const fmtDate = (d: string) =>
-    new Date(d).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-  const fmtTime = (d: string) =>
-    new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    formatDateInZone(new Date(d), { weekday: "short", day: "numeric", month: "short" });
+  const fmtTime = (d: string) => formatTimeInZone(new Date(d));
 
   const mySubmissions = allSubmissions.filter((s) => s.student_id === user.id);
   const myHwSubmitted = allHomework.filter((h) =>
@@ -216,7 +217,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
     if (isPast && missing > 0) {
       due = "Past due";
       dueTone = "warn";
-    } else if (new Date(hw.deadline).toDateString() === now.toDateString()) {
+    } else if (isSameDayInZone(new Date(hw.deadline), now)) {
       due = "Due today";
       dueTone = "warn";
     } else if (!isPast) {

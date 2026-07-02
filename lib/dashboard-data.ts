@@ -79,6 +79,7 @@ export type DashboardData = {
   firstName: string;
   fullName: string;
   userInitials: string;
+  dateLabel: string;
   greeting: string;
   greetingSub: string;
   stats: DashboardStat[];
@@ -130,6 +131,22 @@ type LessonRow = {
   scheduled_at: string;
   duration_hours: number;
   status: string;
+};
+
+/** Shape of the class_members → classes join used by loadDashboardData. */
+type MembershipRow = {
+  role: string;
+  classes: {
+    id: string;
+    title: string;
+    subject: string | null;
+    level: string | null;
+    cycle_hours: number;
+    description: string | null;
+    tutor_notes: string | null;
+    created_by: string;
+    deleted_at: string | null;
+  } | null;
 };
 
 function lessonToSessionRow(
@@ -324,7 +341,11 @@ export async function loadDashboardData(): Promise<DashboardData> {
 
   if (profile?.is_employer) redirect("/employer");
 
-  const classIds = (memberships ?? []).map((m: any) => m.classes?.id).filter(Boolean);
+  // Supabase's inferred join type is looser than what the query guarantees
+  // (single-object FK join) — narrow it once here instead of casting per use.
+  const membershipRows = (memberships ?? []) as unknown as MembershipRow[];
+
+  const classIds = membershipRows.map((m) => m.classes?.id).filter((id): id is string => !!id);
   const inClassIds = classIds.length > 0 ? classIds : [FALLBACK_ID];
   const now = new Date();
 
@@ -378,9 +399,11 @@ export async function loadDashboardData(): Promise<DashboardData> {
     nextLessonMap[classId] = formatNextSession(at, now);
   }
 
-  const allClasses: DashboardClassRow[] = (memberships ?? [])
-    .filter((m: any) => m.classes && !m.classes.deleted_at)
-    .map((m: any) => ({
+  const allClasses: DashboardClassRow[] = membershipRows
+    .filter((m): m is MembershipRow & { classes: NonNullable<MembershipRow["classes"]> } =>
+      Boolean(m.classes && !m.classes.deleted_at)
+    )
+    .map((m) => ({
       ...m.classes,
       role: m.role,
       member_count: countMap[m.classes.id] ?? 1,
@@ -469,6 +492,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
     firstName,
     fullName,
     userInitials,
+    dateLabel: formatDateInZone(now, { weekday: "long", day: "numeric", month: "long" }),
     greeting: greetingForHour(firstName),
     greetingSub,
     stats,

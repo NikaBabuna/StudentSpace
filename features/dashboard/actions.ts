@@ -14,6 +14,8 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
+import { actionFail } from "@/lib/log";
+import { userMessage } from "@/lib/errors";
 import {
   HOMEWORK_BUCKET,
   MATERIALS_BUCKET,
@@ -25,15 +27,15 @@ type Result = { error: string | null };
 async function requireClassCreator(classId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in.", supabase, user: null };
+  if (!user) return { error: userMessage("SS-AUTH-01"), supabase, user: null };
 
   const { data: cls } = await supabase
     .from("classes")
     .select("created_by")
     .eq("id", classId)
     .single();
-  if (!cls) return { error: "Class not found.", supabase, user: null };
-  if (cls.created_by !== user.id) return { error: "Only the class creator can do this.", supabase, user: null };
+  if (!cls) return { error: userMessage("SS-NF-01"), supabase, user: null };
+  if (cls.created_by !== user.id) return { error: userMessage("SS-AUTH-04"), supabase, user: null };
 
   return { error: null, supabase, user };
 }
@@ -62,7 +64,7 @@ export async function updateClass(input: {
     tutor_notes: input.tutorNotes?.trim() || null,
     cycle_hours: input.cycleHours,
   }).eq("id", input.classId);
-  if (error) return { error: error.message };
+  if (error) return actionFail("SS-CLASS-04", error.message, { classId: input.classId });
 
   // Per-cycle payment lives on the open cycle. Both edit surfaces send these
   // fields, so persist them (null clears the amount). Surface a failure instead
@@ -86,7 +88,7 @@ export async function updateClass(input: {
           payment_currency: input.paymentCurrency ?? "GEL",
         })
         .eq("id", openCycle.id);
-      if (payErr) return { error: payErr.message };
+      if (payErr) return actionFail("SS-CLASS-05", payErr.message, { classId: input.classId });
     } else {
       // Every class normally keeps one open cycle, but if none exists, open one
       // rather than dropping the payment the tutor just set.
@@ -103,7 +105,7 @@ export async function updateClass(input: {
         payment_amount: input.paymentAmount ?? null,
         payment_currency: input.paymentCurrency ?? "GEL",
       });
-      if (cycleErr) return { error: cycleErr.message };
+      if (cycleErr) return actionFail("SS-CLASS-05", cycleErr.message, { classId: input.classId });
     }
   }
 
@@ -186,7 +188,7 @@ export async function deleteClass(classId: string): Promise<Result> {
   // created_by, so it can follow.
   await supabase.from("class_members").delete().eq("class_id", classId);
   const { error } = await supabase.from("classes").update({ deleted_at: now }).eq("id", classId);
-  if (error) return { error: error.message };
+  if (error) return actionFail("SS-CLASS-06", error.message, { classId });
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/classes");

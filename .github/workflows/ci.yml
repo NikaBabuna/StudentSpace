@@ -19,16 +19,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Lint is currently informational: the codebase has a backlog of
-      # `no-explicit-any` errors (tracked as "Eliminate any types" in
-      # docs/ROADMAP.md). Flip continue-on-error to false
-      # once that cleanup lands to make lint a hard gate.
+      # Lint is a hard gate: the codebase is at 0 errors / 0 warnings.
       - name: Lint
         run: npm run lint
-        continue-on-error: true
 
-      - name: Test
-        run: npm test
+      # Runs the unit suite AND enforces the coverage thresholds on pure
+      # domain modules (vitest.config.ts) — dropping coverage fails CI.
+      - name: Test (with coverage gate)
+        run: npm run test:coverage
 
       - name: Build
         run: npm run build

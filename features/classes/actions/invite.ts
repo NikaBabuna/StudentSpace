@@ -11,6 +11,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { actionFail } from "@/lib/log";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { ClassRole } from "@/lib/types";
 
 type Result = { error: string | null };
@@ -23,7 +25,12 @@ type Result = { error: string | null };
 export async function sendInvite(classId: string, email: string, role: ClassRole): Promise<Result> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." };
+  if (!user) return actionFail("SS-AUTH-01", null, { action: "sendInvite" });
+
+  // Invites look users up by email — throttle to stop account enumeration.
+  if (!checkRateLimit(`email-lookup:${user.id}`, 15)) {
+    return actionFail("SS-RATE-01", null, { action: "sendInvite" });
+  }
 
   const { data: membership } = await supabase
     .from("class_members")
@@ -31,7 +38,9 @@ export async function sendInvite(classId: string, email: string, role: ClassRole
     .eq("class_id", classId)
     .eq("user_id", user.id)
     .single();
-  if (membership?.role !== "tutor") return { error: "Only tutors can send invites." };
+  if (membership?.role !== "tutor") {
+    return actionFail("SS-AUTH-03", null, { action: "sendInvite", classId });
+  }
 
   const { data: target } = await supabase
     .from("users")
@@ -68,6 +77,7 @@ export async function sendInvite(classId: string, email: string, role: ClassRole
     invited_user_id: target.id,
     role: effectiveRole,
   });
+  if (error) return actionFail("SS-INVITE-01", error.message, { classId });
 
-  return { error: error?.message ?? null };
+  return { error: null };
 }

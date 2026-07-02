@@ -117,16 +117,19 @@ studentspace/
 | `lib/database.types.ts` | **Generated** Supabase TypeScript types | — | All Supabase clients | `Database` |
 | `lib/validation.ts` | Zod schemas shared by client + server | `zod` | Forms, server actions | `signupSchema`, `classCreateSchema`, `homeworkSchema`, `lessonSchema`, `firstError()` |
 | `lib/utils.ts` | Tailwind class merge helper | `clsx`, `tailwind-merge` | All UI | `cn()` |
-| `lib/theme.ts` | Theme constants | — | `theme-toggle`, `globals.css` | theme tokens |
-| `lib/payments.ts` | Pure payment-cycle math (A2 overflow rollover) | — | `schedule/actions`, tests | `sumCompletedHours`, `computeCycleClose` |
+| `lib/theme.ts` | Theme constants + subscribable theme store | — | `theme-toggle` (via `useSyncExternalStore`), `globals.css` | `getActiveTheme`, `applyTheme`, `toggleTheme`, `subscribeTheme` |
+| `lib/time.ts` | **App-timezone helpers** — all server-side date formatting/bucketing must go through here (see [DECISIONS.md §4](DECISIONS.md)) | `Intl` only | Server loaders, overview page, homework actions | `APP_TIME_ZONE`, `zonedWallClockToUtcIso`, `dayKeyInZone`, `isSameDayInZone`, `hourInZone`, `formatDateInZone`, `formatTimeInZone` |
+| `lib/payments.ts` | Pure payment-cycle math (overflow rollover) | — | `schedule/actions`, tests | `sumCompletedHours`, `computeCycleClose` |
 | `lib/homework.ts` | Pure deadline/submission rules | — | Homework UI, actions, tests | `deadlineStatus`, `canSubmit` |
-| `lib/storage.ts` | Signed URL helpers for private buckets | Supabase storage API | Pages loading attachments | `signStoredUrl`, `signAttachments`, bucket constants |
-| `lib/dashboard-data.ts` | Batched queries for dashboard home | `lib/auth`, `lib/dashboard-stats` | `app/(shell)/dashboard/page.tsx` | `loadDashboardData()` |
-| `lib/dashboard-stats.ts` | Stat card builders and greeting | — | `dashboard-data`, analytics | `buildDashboardStats`, `greetingForHour` |
+| `lib/storage.ts` | Signed URL helpers for private buckets; logs `SS-STORE-01` on signing failure | Supabase storage API, `lib/log` | Pages loading attachments | `signStoredUrl`, `signAttachments`, bucket constants |
+| `lib/errors.ts` | **Error catalog** — every internal code with its user-facing message + severity (see [ERRORS.md](ERRORS.md)) | — | `lib/log`, server actions, tests | `ERROR_CATALOG`, `ErrorCode`, `userMessage` |
+| `lib/log.ts` | Structured server logging; `actionFail` = log the technical detail, return the friendly message | `@sentry/nextjs`, `lib/errors` | All `features/**` actions, `lib/storage` | `logEvent`, `actionFail` |
+| `lib/rate-limit.ts` | Best-effort in-memory throttle for abuse-prone actions (email lookups) | — | invite / create-class / settings actions | `checkRateLimit` |
+| `lib/dashboard-data.ts` | Batched queries for dashboard home | `lib/auth`, `lib/dashboard-stats`, `lib/time` | `app/(shell)/dashboard/page.tsx` | `loadDashboardData()` |
+| `lib/dashboard-stats.ts` | Stat card builders and greeting (app-timezone aware) | `lib/time` | `dashboard-data`, analytics | `buildDashboardStats`, `greetingForHour` |
 | `lib/calendar-data.ts` | Batched queries for cross-class calendar | `lib/auth` | `app/(shell)/calendar/page.tsx` | `loadCalendarData()` |
-| `lib/recent-classes.ts` | Client-side recent-class visit tracking | `localStorage` | `DashboardHomeClient`, `RecordClassVisit` | `readRecentClassVisits`, `recordClassVisit` |
-| `lib/payments.test.ts` | Unit tests for cycle math | `vitest`, `lib/payments` | CI | — |
-| `lib/homework.test.ts` | Unit tests for deadline logic | `vitest`, `lib/homework` | CI | — |
+| `lib/recent-classes.ts` | Recent-class visits in `localStorage`, exposed as an external store for `useSyncExternalStore` | `localStorage` | `DashboardHomeClient`, `RecordClassVisit` | `recordClassVisit`, `subscribeRecentClassVisits`, `getRecentClassVisitsSnapshot`, sort helpers |
+| `lib/*.test.ts` | Unit tests colocated with each pure module (payments, homework, time, rate-limit, errors, validation, dashboard-stats, recent-classes) — coverage-gated, see [TESTING.md](TESTING.md) | `vitest` | CI | — |
 
 ### 5.3 `components/` — UI kit and chrome
 
@@ -142,6 +145,7 @@ Reusable, token-styled building blocks. No business logic. Compose these in feat
 | `card.tsx` | Surface container |
 | `empty-state.tsx` | Placeholder when lists are empty |
 | `field.tsx` | Label + input wrapper with error display |
+| `file-drop-zone.tsx` | Click/drag file picker with pending list (`FileDropZone`, `formatFileSize`) |
 | `icon-button.tsx` | Icon-only button |
 | `input.tsx`, `textarea.tsx`, `label.tsx` | Form controls |
 | `progress.tsx` | Progress bar |
@@ -180,7 +184,7 @@ Each folder follows: `actions.ts` (mutations), `components/*Client.tsx` (interac
 | File | Role | Actions / I/O |
 | --- | --- | --- |
 | `actions.ts` | Post a class message | In: `classId`, `body` → Out: `{ error }` |
-| `components/ChatPage.tsx` | Realtime chat UI; subscribes to `messages` | Reads messages; calls `postMessage` |
+| `components/ChatPage.tsx` | Realtime chat UI; subscribes to `messages` | Header data (title, member count, user id) arrives as server props; messages load client-side where the Realtime subscription lives |
 
 #### `features/classes/`
 
@@ -323,7 +327,7 @@ Routes are **Server Components** unless noted. They authenticate, fetch, sign UR
 | `classes/[id]/homework/page.tsx` | Homework list |
 | `classes/[id]/homework/[hwId]/page.tsx` | Single homework + submissions |
 | `classes/[id]/materials/page.tsx` | Materials |
-| `classes/[id]/chat/page.tsx` | Re-exports `ChatPage` |
+| `classes/[id]/chat/page.tsx` | Loads chat header data (cached class row + member count), renders `ChatPage` |
 | `classes/[id]/invite/page.tsx` | Invite members |
 | `classes/[id]/loading.tsx`, `error.tsx` | Boundaries |
 
@@ -414,12 +418,12 @@ RLS policies exist in migrations but app-layer guards are the primary protection
 
 ## 8. Server actions catalog
 
-All live under `features/` with `"use server"`. Convention: return `{ error: string | null }` (or `{ groupId, error }`).
+All live under `features/` with `"use server"`. Convention: return `{ error: string | null }` (or `{ groupId, error }`). Unexpected failures go through `actionFail(code, detail, context)` from `lib/log.ts` — the raw detail is logged under its [ERRORS.md](ERRORS.md) code and the client receives only the catalogued friendly message.
 
 | Module | Actions |
 | --- | --- |
 | Chat | `postMessage` |
-| Classes | `lookupInviteEmail`, `createClassPipeline`, `createClass`, `sendInvite`, `removeMember` |
+| Classes | `lookupInviteEmail`, `createClassPipeline`, `sendInvite`, `removeMember` |
 | Dashboard | `updateClass`, `deleteClass` |
 | Schedule | `completeLesson`, `missLesson`, `cancelLesson`, `deleteLesson`, `scheduleLesson`, `createRecurringSchedule`, `setRecurringScheduleActive`, `deleteRecurringSchedule`, `markCyclePaid` |
 | Homework | `createHomework`, `updateHomework`, `deleteHomework`, `submitHomework`, `gradeSubmission` |
@@ -487,7 +491,11 @@ Generated files (`lib/database.types.ts`, `next-env.d.ts`) and test/config files
 | Document | Contents |
 | --- | --- |
 | [PRODUCT.md](PRODUCT.md) | Schema, roles, business rules |
-| [ENGINEERING.md](ENGINEERING.md) | Dev setup, deployment, design tokens |
+| [ENGINEERING.md](ENGINEERING.md) | Dev setup, deployment, design tokens, timezone rules |
+| [DECISIONS.md](DECISIONS.md) | Design decisions and philosophy — the *why* behind this structure |
+| [QUALITY.md](QUALITY.md) | Quality standard and definition of done |
+| [TESTING.md](TESTING.md) | Testing contract and coverage thresholds |
+| [ERRORS.md](ERRORS.md) | Error-code catalog and logging |
 | [ROADMAP.md](ROADMAP.md) | Production hardening backlog |
 
 ---

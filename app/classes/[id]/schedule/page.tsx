@@ -8,7 +8,7 @@
  * Inputs: params.id (class UUID)
  * Outputs: ScheduleClient with role, timezone, lessons, cycles, schedules
  * ========================================================================== */
-import { getServerClient, requireAuth, getClassMembership, getClassRow } from "@/lib/auth";
+import { getServerClient, requireAuth, getClassMembership } from "@/lib/auth";
 import ScheduleClient from "@/features/schedule/components/ScheduleClient";
 import type { RecurringSchedule } from "@/features/schedule/lib/schedule-utils";
 
@@ -19,11 +19,10 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
   const user = await requireAuth();
   const supabase = await getServerClient();
 
-  // membership + class are request-cached (loaded by the layout). Schedules are
+  // membership is request-cached (loaded by the layout). Schedules are
   // needed before lessons so tutors can roll the materialisation horizon forward.
-  const [membership, classData, { data: schedules }] = await Promise.all([
+  const [membership, { data: schedules }] = await Promise.all([
     getClassMembership(id, user.id),
-    getClassRow(id),
     supabase
       .from("recurring_schedules")
       .select(
@@ -75,11 +74,9 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
   return (
     <ScheduleClient
       classId={id}
-      userId={user.id}
       role={role}
       lessons={lessons ?? []}
       cycles={cycles ?? []}
-      cycleHours={classData?.cycle_hours ?? 8}
       schedules={(schedules ?? []) as RecurringSchedule[]}
     />
   );

@@ -10,7 +10,7 @@
  * ========================================================================== */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -52,13 +52,19 @@ type AddLessonsDialogProps = {
 const controlClass =
   "h-11 w-full rounded-xl border border-line-2 bg-surface px-3.5 text-sm text-ink outline-none transition-colors hover:bg-surface-2 focus-visible:border-accent focus-visible:bg-surface focus-visible:ring-2 focus-visible:ring-accent/30";
 
-export function AddLessonsDialog({
-  open,
+export function AddLessonsDialog({ open, ...bodyProps }: AddLessonsDialogProps) {
+  // The body mounts fresh each time the dialog opens, so all form state starts
+  // from its defaults naturally — no reset effect needed.
+  if (!open || typeof document === "undefined") return null;
+  return <AddLessonsDialogBody {...bodyProps} />;
+}
+
+function AddLessonsDialogBody({
   onClose,
   onSubmit,
   missedNeedingMakeup,
   initialMakeupForId = "",
-}: AddLessonsDialogProps) {
+}: Omit<AddLessonsDialogProps, "open">) {
   const isMakeup = !!initialMakeupForId;
 
   const [mode, setMode] = useState<"once" | "repeat">("once");
@@ -68,26 +74,12 @@ export function AddLessonsDialog({
   const [error, setError] = useState<string | null>(null);
 
   const [dateKey, setDateKey] = useState(() => toDateKey(new Date()));
-  const [makeupForId, setMakeupForId] = useState("");
+  const [makeupForId, setMakeupForId] = useState(initialMakeupForId);
 
-  const [weekdays, setWeekdays] = useState<number[]>([]);
+  const [weekdays, setWeekdays] = useState<number[]>(() => [new Date().getDay()]);
   const [intervalWeeks, setIntervalWeeks] = useState(1);
   const [hasUntil, setHasUntil] = useState(false);
   const [untilDate, setUntilDate] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    setMode("once");
-    setTime("16:00");
-    setDurationHours(1);
-    setDateKey(toDateKey(new Date()));
-    setMakeupForId(initialMakeupForId);
-    setWeekdays([new Date().getDay()]);
-    setIntervalWeeks(1);
-    setHasUntil(false);
-    setUntilDate("");
-    setError(null);
-  }, [open, initialMakeupForId]);
 
   function toggleWeekday(dow: number) {
     setWeekdays((prev) => (prev.includes(dow) ? prev.filter((d) => d !== dow) : [...prev, dow]));
@@ -135,8 +127,6 @@ export function AddLessonsDialog({
       setLoading(false);
     }
   }
-
-  if (!open || typeof document === "undefined") return null;
 
   return createPortal(
     <div

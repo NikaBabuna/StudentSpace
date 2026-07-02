@@ -11,6 +11,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { actionFail } from "@/lib/log";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 type Result = { error: string | null };
 
@@ -21,7 +23,12 @@ type Result = { error: string | null };
 export async function sendParentRequest(email: string): Promise<Result> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." };
+  if (!user) return actionFail("SS-AUTH-01", null, { action: "sendParentRequest" });
+
+  // Looks users up by email — throttle to stop account enumeration.
+  if (!checkRateLimit(`email-lookup:${user.id}`, 15)) {
+    return actionFail("SS-RATE-01", null, { action: "sendParentRequest" });
+  }
 
   const { data: found } = await supabase
     .from("users")
@@ -54,34 +61,37 @@ export async function sendParentRequest(email: string): Promise<Result> {
     student_id: found.id,
     status: "pending",
   });
+  if (error) return actionFail("SS-LINK-01", error.message, { action: "sendParentRequest" });
 
-  return { error: error?.message ?? null };
+  return { error: null };
 }
 
 /** Remove a parent→child link where the current user is the parent. */
 export async function removeChild(studentId: string): Promise<Result> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." };
+  if (!user) return actionFail("SS-AUTH-01", null, { action: "removeChild" });
 
   const { error } = await supabase
     .from("parent_students")
     .delete()
     .eq("parent_id", user.id)
     .eq("student_id", studentId);
-  return { error: error?.message ?? null };
+  if (error) return actionFail("SS-LINK-02", error.message, { action: "removeChild" });
+  return { error: null };
 }
 
 /** Remove a parent→child link where the current user is the child. */
 export async function removeParent(parentId: string): Promise<Result> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." };
+  if (!user) return actionFail("SS-AUTH-01", null, { action: "removeParent" });
 
   const { error } = await supabase
     .from("parent_students")
     .delete()
     .eq("parent_id", parentId)
     .eq("student_id", user.id);
-  return { error: error?.message ?? null };
+  if (error) return actionFail("SS-LINK-02", error.message, { action: "removeParent" });
+  return { error: null };
 }

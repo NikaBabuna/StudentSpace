@@ -6,11 +6,14 @@
  * Dependencies: lib/supabase/server, lib/validation, schedule/actions, invite
  * Used by: features/classes/components/NewClassForm.tsx
  * Inputs: Class metadata, cycle hours, payment, schedule, invite emails
- * Outputs: lookupInviteEmail → user preview; createClass → class id or error
+ * Outputs: lookupInviteEmail → user preview; createClassPipeline → class id or error
  * ========================================================================== */
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { actionFail } from "@/lib/log";
+import { userMessage } from "@/lib/errors";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { classCreateSchema, firstError } from "@/lib/validation";
 import {
   createRecurringSchedule,
@@ -26,7 +29,12 @@ export async function lookupInviteEmail(
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { name: null, error: "Not signed in." };
+  if (!user) return { name: null, ...actionFail("SS-AUTH-01", null, { action: "lookupInviteEmail" }) };
+
+  // Email lookup reveals whether an address has an account — throttle it.
+  if (!checkRateLimit(`email-lookup:${user.id}`, 15)) {
+    return { name: null, ...actionFail("SS-RATE-01", null, { action: "lookupInviteEmail" }) };
+  }
 
   const { data } = await supabase
     .from("users")
@@ -90,7 +98,7 @@ export async function createClassPipeline(
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { classId: null, error: "Not signed in." };
+  if (!user) return { classId: null, error: userMessage("SS-AUTH-01") };
 
   const { data: newClass, error: classError } = await supabase
     .from("classes")
@@ -104,12 +112,16 @@ export async function createClassPipeline(
     })
     .select("id")
     .single();
-  if (classError || !newClass) return { classId: null, error: classError?.message ?? "Could not create class." };
+  if (classError || !newClass) {
+    return { classId: null, ...actionFail("SS-CLASS-01", classError?.message) };
+  }
 
   const { error: memberError } = await supabase
     .from("class_members")
     .insert({ class_id: newClass.id, user_id: user.id, role: "tutor" });
-  if (memberError) return { classId: null, error: memberError.message };
+  if (memberError) {
+    return { classId: null, ...actionFail("SS-CLASS-02", memberError.message, { classId: newClass.id }) };
+  }
 
   const { error: cycleError } = await supabase.from("payment_cycles").insert({
     class_id: newClass.id,
@@ -117,7 +129,9 @@ export async function createClassPipeline(
     payment_amount: input.paymentAmount ?? null,
     payment_currency: input.paymentCurrency ?? "GEL",
   });
-  if (cycleError) return { classId: null, error: cycleError.message };
+  if (cycleError) {
+    return { classId: null, ...actionFail("SS-CLASS-03", cycleError.message, { classId: newClass.id }) };
+  }
 
   if (input.schedule?.mode === "once") {
     const { error: lessonError } = await scheduleLesson({
@@ -151,26 +165,4 @@ export async function createClassPipeline(
     error: null,
     inviteErrors: inviteErrors.length ? inviteErrors : undefined,
   };
-}
-
-/** @deprecated Use createClassPipeline — kept for any legacy callers. */
-export async function createClass(input: {
-  title: string;
-  subject?: string;
-  level?: string;
-  description?: string;
-  cycleHours: number;
-  paymentAmount?: number | null;
-  paymentCurrency?: string;
-}): Promise<{ classId: string | null; error: string | null }> {
-  const result = await createClassPipeline({
-    title: input.title,
-    subject: input.subject ?? "",
-    level: input.level ?? "",
-    description: input.description,
-    cycleHours: input.cycleHours,
-    paymentAmount: input.paymentAmount,
-    paymentCurrency: input.paymentCurrency,
-  });
-  return { classId: result.classId, error: result.error };
 }

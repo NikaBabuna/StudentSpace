@@ -3,38 +3,37 @@
  * -----------------------------------------------------------------------------
  * Role: Verifies membership, loads material_groups + materials, signs file
  *       URLs, renders MaterialsClient.
- * Dependencies: lib/supabase/server, lib/storage, MaterialsClient
+ * Dependencies: lib/auth (cached helpers), lib/storage, MaterialsClient
  * Used by: Route /classes/[id]/materials
  * Inputs: params.id
  * Outputs: MaterialsClient with groups and role
  * ========================================================================== */
-import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+
+import { getServerClient, requireAuth, getClassMembership } from "@/lib/auth";
 import MaterialsClient from "@/features/materials/components/MaterialsClient";
 import { signStoredUrl, MATERIALS_BUCKET } from "@/lib/storage";
 
 export default async function MaterialsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const user = await requireAuth();
+  const supabase = await getServerClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // membership is request-cached (the class layout already loaded it); groups
+  // are independent — fetch both together. Materials depend on group ids.
+  const [membership, { data: groups }] = await Promise.all([
+    getClassMembership(id, user.id),
+    supabase
+      .from("material_groups")
+      .select("id, name, created_at")
+      .eq("class_id", id)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true }),
+  ]);
 
-  const { data: membership } = await supabase
-    .from("class_members")
-    .select("role")
-    .eq("class_id", id)
-    .eq("user_id", user.id)
-    .single();
+  if (!membership) redirect("/dashboard");
 
-  const { data: groups } = await supabase
-    .from("material_groups")
-    .select("id, name, created_at")
-    .eq("class_id", id)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: true });
-
-  const groupIds = (groups ?? []).map(g => g.id);
+  const groupIds = (groups ?? []).map((g) => g.id);
 
   const { data: materials } = await supabase
     .from("materials")
@@ -55,8 +54,7 @@ export default async function MaterialsPage({ params }: { params: Promise<{ id: 
   return (
     <MaterialsClient
       classId={id}
-      userId={user.id}
-      role={membership?.role ?? "student"}
+      role={membership.role}
       groups={groups ?? []}
       materials={signedMaterials}
     />

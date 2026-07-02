@@ -12,6 +12,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { actionFail } from "@/lib/log";
+import { userMessage } from "@/lib/errors";
 import { sumCompletedHours, computeCycleClose } from "@/lib/payments";
 import { lessonSchema, firstError } from "@/lib/validation";
 
@@ -20,14 +22,14 @@ type Result = { error: string | null };
 async function getTutorContext(lessonId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." as string, supabase, user: null, lesson: null };
+  if (!user) return { error: userMessage("SS-AUTH-01"), supabase, user: null, lesson: null };
 
   const { data: lesson } = await supabase
     .from("lessons")
     .select("id, class_id, duration_hours, scheduled_at, status, payment_cycle_id")
     .eq("id", lessonId)
     .single();
-  if (!lesson) return { error: "Lesson not found.", supabase, user, lesson: null };
+  if (!lesson) return { error: userMessage("SS-NF-02"), supabase, user, lesson: null };
 
   const { data: membership } = await supabase
     .from("class_members")
@@ -35,7 +37,7 @@ async function getTutorContext(lessonId: string) {
     .eq("class_id", lesson.class_id)
     .eq("user_id", user.id)
     .single();
-  if (membership?.role !== "tutor") return { error: "Only tutors can modify lessons.", supabase, user, lesson: null };
+  if (membership?.role !== "tutor") return { error: userMessage("SS-AUTH-03"), supabase, user, lesson: null };
 
   return { error: null, supabase, user, lesson };
 }
@@ -77,36 +79,37 @@ export async function completeLesson(lessonId: string): Promise<Result> {
       .from("lessons")
       .update({ status: "completed", payment_cycle_id: activeCycle.id })
       .eq("id", lessonId);
-    if (e1) return { error: e1.message };
+    if (e1) return actionFail("SS-LESSON-02", e1.message, { lessonId, step: "complete" });
 
     const { error: e2 } = await supabase
       .from("payment_cycles")
       .update({ closed_at: new Date().toISOString() })
       .eq("id", activeCycle.id);
-    if (e2) return { error: e2.message };
+    if (e2) return actionFail("SS-CYCLE-01", e2.message, { lessonId, step: "close-cycle" });
 
     const { data: newCycle, error: e3 } = await supabase
       .from("payment_cycles")
       .insert({ class_id: lesson!.class_id, cycle_number: activeCycle.cycle_number + 1 })
       .select()
       .single();
-    if (e3) return { error: e3.message };
+    if (e3) return actionFail("SS-CYCLE-01", e3.message, { lessonId, step: "open-cycle" });
 
     if (overflowHours > 0 && newCycle) {
-      await supabase.from("lessons").insert({
+      const { error: e4 } = await supabase.from("lessons").insert({
         class_id: lesson!.class_id,
         scheduled_at: lesson!.scheduled_at,
         duration_hours: overflowHours,
         status: "completed",
         payment_cycle_id: newCycle.id,
       });
+      if (e4) return actionFail("SS-CYCLE-01", e4.message, { lessonId, step: "overflow-lesson" });
     }
   } else {
     const { error } = await supabase
       .from("lessons")
       .update({ status: "completed", payment_cycle_id: activeCycle?.id ?? null })
       .eq("id", lessonId);
-    if (error) return { error: error.message };
+    if (error) return actionFail("SS-LESSON-02", error.message, { lessonId, step: "complete" });
   }
 
   return { error: null };
@@ -116,14 +119,16 @@ export async function missLesson(lessonId: string): Promise<Result> {
   const ctx = await getTutorContext(lessonId);
   if (ctx.error) return { error: ctx.error };
   const { error } = await ctx.supabase.from("lessons").update({ status: "missed" }).eq("id", lessonId);
-  return { error: error?.message ?? null };
+  if (error) return actionFail("SS-LESSON-02", error.message, { lessonId, step: "miss" });
+  return { error: null };
 }
 
 export async function cancelLesson(lessonId: string): Promise<Result> {
   const ctx = await getTutorContext(lessonId);
   if (ctx.error) return { error: ctx.error };
   const { error } = await ctx.supabase.from("lessons").update({ status: "cancelled" }).eq("id", lessonId);
-  return { error: error?.message ?? null };
+  if (error) return actionFail("SS-LESSON-02", error.message, { lessonId, step: "cancel" });
+  return { error: null };
 }
 
 export async function deleteLesson(lessonId: string): Promise<Result> {
@@ -133,7 +138,8 @@ export async function deleteLesson(lessonId: string): Promise<Result> {
     .from("lessons")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", lessonId);
-  return { error: error?.message ?? null };
+  if (error) return actionFail("SS-LESSON-03", error.message, { lessonId });
+  return { error: null };
 }
 
 /**
@@ -179,7 +185,8 @@ export async function updateLesson(input: {
   patch.recurring_schedule_id = null; // a hand-edited occurrence is now a one-off
 
   const { error } = await supabase.from("lessons").update(patch).eq("id", input.lessonId);
-  return { error: error?.message ?? null };
+  if (error) return actionFail("SS-LESSON-04", error.message, { lessonId: input.lessonId });
+  return { error: null };
 }
 
 export async function scheduleLesson(input: {
@@ -193,7 +200,7 @@ export async function scheduleLesson(input: {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." };
+  if (!user) return actionFail("SS-AUTH-01", null, { action: "scheduleLesson" });
 
   const { data: membership } = await supabase
     .from("class_members")
@@ -201,7 +208,9 @@ export async function scheduleLesson(input: {
     .eq("class_id", input.classId)
     .eq("user_id", user.id)
     .single();
-  if (membership?.role !== "tutor") return { error: "Only tutors can schedule lessons." };
+  if (membership?.role !== "tutor") {
+    return actionFail("SS-AUTH-03", null, { action: "scheduleLesson", classId: input.classId });
+  }
 
   const { error } = await supabase.from("lessons").insert({
     class_id: input.classId,
@@ -210,8 +219,9 @@ export async function scheduleLesson(input: {
     status: "scheduled",
     replaces_lesson_id: input.makeupForId || null,
   });
+  if (error) return actionFail("SS-LESSON-01", error.message, { classId: input.classId });
 
-  return { error: error?.message ?? null };
+  return { error: null };
 }
 
 // How many weeks ahead recurring lessons are materialised on create / refresh.
@@ -223,7 +233,7 @@ async function requireTutorForClass(classId: string) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." as string | null, supabase, user: null };
+  if (!user) return { error: userMessage("SS-AUTH-01") as string | null, supabase, user: null };
 
   const { data: membership } = await supabase
     .from("class_members")
@@ -232,7 +242,7 @@ async function requireTutorForClass(classId: string) {
     .eq("user_id", user.id)
     .single();
   if (membership?.role !== "tutor")
-    return { error: "Only tutors can manage schedules." as string | null, supabase, user: null };
+    return { error: userMessage("SS-AUTH-03") as string | null, supabase, user: null };
 
   return { error: null as string | null, supabase, user };
 }
@@ -253,7 +263,7 @@ export async function createRecurringSchedule(input: {
   timezone: string; // tutor's browser timezone, e.g. "Asia/Tbilisi"
 }): Promise<{ error: string | null; created: number }> {
   const { error: authError, supabase, user } = await requireTutorForClass(input.classId);
-  if (authError || !user) return { error: authError ?? "Not signed in.", created: 0 };
+  if (authError || !user) return { error: authError ?? userMessage("SS-AUTH-01"), created: 0 };
 
   if (input.weekdays.length === 0) return { error: "Pick at least one day of the week.", created: 0 };
   if (!(input.durationHours > 0)) return { error: "Duration must be greater than 0.", created: 0 };
@@ -278,13 +288,17 @@ export async function createRecurringSchedule(input: {
       })
       .select("id")
       .single();
-    if (insertError || !schedule) return { error: insertError?.message ?? "Could not save the schedule.", created };
+    if (insertError || !schedule) {
+      return { created, ...actionFail("SS-RECUR-01", insertError?.message, { classId: input.classId, weekday }) };
+    }
 
     const { data: count, error: genError } = await supabase.rpc("generate_recurring_lessons", {
       p_schedule_id: schedule.id,
       p_horizon_weeks: RECURRENCE_HORIZON_WEEKS,
     });
-    if (genError) return { error: genError.message, created };
+    if (genError) {
+      return { created, ...actionFail("SS-RECUR-02", genError.message, { scheduleId: schedule.id }) };
+    }
     created += count ?? 0;
   }
 
@@ -304,7 +318,7 @@ export async function setRecurringScheduleActive(
     .from("recurring_schedules")
     .update({ active })
     .eq("id", scheduleId);
-  if (error) return { error: error.message };
+  if (error) return actionFail("SS-RECUR-03", error.message, { scheduleId, step: "toggle-active" });
 
   if (active) {
     await supabase.rpc("generate_recurring_lessons", {
@@ -328,14 +342,15 @@ export async function deleteRecurringSchedule(scheduleId: string, classId: strin
     .from("recurring_schedules")
     .update({ deleted_at: new Date().toISOString(), active: false })
     .eq("id", scheduleId);
+  if (error) return actionFail("SS-RECUR-03", error.message, { scheduleId, step: "retire" });
 
-  return { error: error?.message ?? null };
+  return { error: null };
 }
 
 export async function markCyclePaid(cycleId: string, classId: string): Promise<Result> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." };
+  if (!user) return actionFail("SS-AUTH-01", null, { action: "markCyclePaid" });
 
   const { data: membership } = await supabase
     .from("class_members")
@@ -343,12 +358,15 @@ export async function markCyclePaid(cycleId: string, classId: string): Promise<R
     .eq("class_id", classId)
     .eq("user_id", user.id)
     .single();
-  if (membership?.role !== "tutor") return { error: "Only tutors can mark cycles as paid." };
+  if (membership?.role !== "tutor") {
+    return actionFail("SS-AUTH-03", null, { action: "markCyclePaid", classId });
+  }
 
   const { error } = await supabase
     .from("payment_cycles")
     .update({ paid_at: new Date().toISOString() })
     .eq("id", cycleId);
+  if (error) return actionFail("SS-CYCLE-02", error.message, { classId, cycleId });
 
-  return { error: error?.message ?? null };
+  return { error: null };
 }

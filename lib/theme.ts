@@ -28,6 +28,20 @@ export function getActiveTheme(): Theme {
   return t === "light" || t === "dark" ? t : DEFAULT_THEME;
 }
 
+/** Server-render snapshot for useSyncExternalStore — always the default. */
+export function getServerTheme(): Theme {
+  return DEFAULT_THEME;
+}
+
+// Components subscribe via useSyncExternalStore so every toggle instance
+// re-renders when applyTheme() runs, without effect-driven state syncing.
+const listeners = new Set<() => void>();
+
+export function subscribeTheme(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 /**
  * Apply a theme: flip the <html> attribute (re-themes the UI instantly) and
  * persist the choice. Safe to call on the client only.
@@ -40,6 +54,7 @@ export function applyTheme(theme: Theme): void {
   } catch {
     /* private mode / storage disabled — the attribute still applies for now */
   }
+  listeners.forEach((l) => l());
 }
 
 /** Switch to the opposite theme and return the new value. */

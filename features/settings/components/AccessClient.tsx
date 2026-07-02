@@ -99,12 +99,11 @@ type ParentLink = { parent: LinkedPerson };
 type SentRequest = { id: string; student?: LinkedPerson | null };
 
 export default function AccessClient({
-  children,
+  childLinks,
   parents,
   sentRequests,
 }: {
-  userId: string;
-  children: ChildLink[];
+  childLinks: ChildLink[];
   parents: ParentLink[];
   sentRequests: SentRequest[];
 }) {
@@ -201,9 +200,9 @@ export default function AccessClient({
               </div>
             ) : null}
 
-            {children.length > 0 ? (
+            {childLinks.length > 0 ? (
               <div className="flex flex-col gap-2">
-                {children.map((c) => (
+                {childLinks.map((c) => (
                   <PersonRow
                     key={c.student.id}
                     name={c.student.full_name}
@@ -215,7 +214,7 @@ export default function AccessClient({
               </div>
             ) : null}
 
-            {children.length === 0 && sentRequests.length === 0 ? (
+            {childLinks.length === 0 && sentRequests.length === 0 ? (
               <EmptyHint>No children linked yet.</EmptyHint>
             ) : null}
           </CardContent>

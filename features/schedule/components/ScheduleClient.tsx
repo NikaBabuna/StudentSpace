@@ -61,19 +61,15 @@ import {
 
 export default function ScheduleClient({
   classId,
-  userId: _userId,
   role,
   lessons,
   cycles,
-  cycleHours: _cycleHours,
   schedules,
 }: {
   classId: string;
-  userId: string;
   role: string;
   lessons: Lesson[];
   cycles: Cycle[];
-  cycleHours: number;
   schedules: RecurringSchedule[];
 }) {
   const router = useRouter();

@@ -48,9 +48,18 @@ function zoneOffsetMs(instantMs: number, timeZone: string): number {
  * user — a local time — regardless of where the code runs.
  */
 export function zonedWallClockToUtcIso(naive: string, timeZone = APP_TIME_ZONE): string {
+  // A value that already carries a zone (Z or ±hh[:]mm) is an instant, not a
+  // wall clock — normalise and return it. Checked BEFORE the wall-clock regex,
+  // which would otherwise match the prefix and shift the time by the zone
+  // offset (a bug lib/time.test.ts guards against).
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/.test(naive)) {
+    const parsed = new Date(naive);
+    return Number.isNaN(parsed.getTime()) ? naive : parsed.toISOString();
+  }
+
   const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/.exec(naive);
   if (!m) {
-    // Already an ISO instant (has a zone) or an unexpected shape — trust it.
+    // Unexpected shape — trust it if parseable.
     const parsed = new Date(naive);
     return Number.isNaN(parsed.getTime()) ? naive : parsed.toISOString();
   }
@@ -75,6 +84,14 @@ export function calendarDayDiffInZone(target: Date, base: Date, timeZone = APP_T
   const t = Date.parse(`${dayKeyInZone(target, timeZone)}T00:00:00Z`);
   const b = Date.parse(`${dayKeyInZone(base, timeZone)}T00:00:00Z`);
   return Math.round((t - b) / 86_400_000);
+}
+
+/** Hour of day (0–23) of an instant, in the app zone. */
+export function hourInZone(date: Date, timeZone = APP_TIME_ZONE): number {
+  const h = Number(
+    date.toLocaleTimeString("en-GB", { hour: "2-digit", hour12: false, timeZone })
+  );
+  return h === 24 ? 0 : h; // some engines emit 24 for midnight
 }
 
 /** "16:00" in the app zone (24h). */

@@ -3,11 +3,14 @@
  * -----------------------------------------------------------------------------
  * Role: Turns raw lesson/submission rows into stat cards and time-of-day
  *       greeting text. No I/O — easy to reason about and test in isolation.
- * Dependencies: None
+ * Dependencies: lib/time (all "today"/hour reasoning is in the app timezone —
+ *               this module runs on the server, where local time is UTC)
  * Used by: lib/dashboard-data.ts, features/dashboard AnalyticsClient (types)
  * Inputs: Class IDs, lesson rows, submission rows, student user IDs
  * Outputs: DashboardStat[], greetingForHour(firstName)
  * ========================================================================== */
+import { dayKeyInZone, hourInZone } from "@/lib/time";
+
 export type DashboardStat = {
   label: string;
   value: string | number;
@@ -27,19 +30,14 @@ function lessonAttendance(lessons: LessonRow[]) {
 }
 
 function todaySessionCount(lessons: LessonRow[]) {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date();
-  end.setHours(23, 59, 59, 999);
-  return lessons.filter((l) => {
-    if (l.status !== "scheduled") return false;
-    const at = new Date(l.scheduled_at);
-    return at >= start && at <= end;
-  }).length;
+  const todayKey = dayKeyInZone(new Date());
+  return lessons.filter(
+    (l) => l.status === "scheduled" && dayKeyInZone(new Date(l.scheduled_at)) === todayKey
+  ).length;
 }
 
 export function greetingForHour(firstName: string): string {
-  const h = new Date().getHours();
+  const h = hourInZone(new Date());
   const period = h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
   return firstName ? `Good ${period}, ${firstName}` : `Good ${period}`;
 }

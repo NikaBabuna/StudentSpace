@@ -2,15 +2,18 @@
  * features/chat/components/ChatPage.tsx — realtime class chat UI
  * -----------------------------------------------------------------------------
  * Role: Displays message history and composer. Subscribes to Supabase Realtime
- *       for live updates; posts via postMessage server action.
+ *       for live updates; posts via postMessage server action. Class title,
+ *       member count, and current user come from the server page — only the
+ *       message list itself is fetched client-side (it must live where the
+ *       Realtime subscription lives).
  * Dependencies: lib/supabase/client, features/chat/actions, components/ui
- * Used by: app/classes/[id]/chat/page.tsx (re-export)
- * Inputs: params.id (class UUID from route)
+ * Used by: app/classes/[id]/chat/page.tsx
+ * Inputs: classId, classTitle, memberCount, currentUserId (server props)
  * Outputs: Interactive chat panel inside the class layout
  * ========================================================================== */
 "use client";
 
-import { use, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
@@ -20,8 +23,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { postMessage } from "@/features/chat/actions";
-
-type Role = "tutor" | "student" | "parent" | "employer";
 
 interface Message {
   id: string;
@@ -64,14 +65,22 @@ function shouldShowName(msg: Message, prev: Message | null, isMe: boolean) {
   return prev.author_id !== msg.author_id;
 }
 
-export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: classId } = use(params);
-  const supabase = createClient();
+export default function ChatPage({
+  classId,
+  classTitle,
+  memberCount,
+  currentUserId,
+}: {
+  classId: string;
+  classTitle: string;
+  memberCount: number;
+  currentUserId: string;
+}) {
+  // createBrowserClient returns a shared singleton, but memoise anyway so the
+  // effect dependency below is referentially stable across renders.
+  const supabase = useMemo(() => createClient(), []);
 
-  const [classTitle, setClassTitle] = useState("Class");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [memberCount, setMemberCount] = useState(0);
-  const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -79,20 +88,6 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
   useEffect(() => {
     async function load() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      setCurrentUser(user.id);
-
-      const [{ data: cls }, { data: memberRows }] = await Promise.all([
-        supabase.from("classes").select("title").eq("id", classId).single(),
-        supabase.from("class_members").select("user_id").eq("class_id", classId),
-      ]);
-
-      setClassTitle(cls?.title ?? "Class");
-      setMemberCount(memberRows?.length ?? 0);
-
       const { data: msgs } = await supabase
         .from("messages")
         .select(
@@ -154,7 +149,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [classId]);
+  }, [classId, supabase]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -162,7 +157,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
   async function sendMessage() {
     const text = input.trim();
-    if (!text || sending || !currentUser) return;
+    if (!text || sending) return;
 
     // Optimistic: show the bubble immediately, then confirm via the server +
     // the realtime echo. Self-bubbles never render a name, so a minimal row
@@ -172,7 +167,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       id: tempId,
       body: text,
       created_at: new Date().toISOString(),
-      author_id: currentUser,
+      author_id: currentUserId,
       author: null,
       pending: true,
     };
@@ -237,7 +232,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
                 <div className="flex flex-col gap-3.5">
                   {group.messages.map((msg, index) => {
-                    const isMe = msg.author_id === currentUser;
+                    const isMe = msg.author_id === currentUserId;
                     const name = authorName(msg);
                     const prev = index > 0 ? group.messages[index - 1] : null;
                     const showName = shouldShowName(msg, prev, isMe);

@@ -12,7 +12,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
 import { AnalyticsIcon } from "@/components/icons";
-import { cn } from "@/lib/utils";
 import {
   rangeStart,
   truncateLabel,

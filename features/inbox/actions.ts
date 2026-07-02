@@ -11,6 +11,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { actionFail } from "@/lib/log";
 
 type Result = { error: string | null };
 
@@ -22,7 +23,7 @@ type Result = { error: string | null };
 export async function respondInvite(inviteId: string, accept: boolean): Promise<Result> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." };
+  if (!user) return actionFail("SS-AUTH-01", null, { action: "respondInvite" });
 
   const { data: invite } = await supabase
     .from("invites")
@@ -30,8 +31,10 @@ export async function respondInvite(inviteId: string, accept: boolean): Promise<
     .eq("id", inviteId)
     .single();
 
-  if (!invite) return { error: "Invite not found." };
-  if (invite.invited_user_id !== user.id) return { error: "This invite isn't yours." };
+  if (!invite) return actionFail("SS-NF-04", null, { action: "respondInvite", inviteId });
+  if (invite.invited_user_id !== user.id) {
+    return actionFail("SS-AUTH-05", null, { action: "respondInvite", inviteId });
+  }
   if (invite.status !== "pending") return { error: "This invite has already been answered." };
 
   if (accept) {
@@ -40,15 +43,16 @@ export async function respondInvite(inviteId: string, accept: boolean): Promise<
       user_id: user.id,
       role: invite.role,
     });
-    if (error) return { error: error.message };
+    if (error) return actionFail("SS-INBOX-01", error.message, { inviteId, classId: invite.class_id });
   }
 
   const { error } = await supabase
     .from("invites")
     .update({ status: accept ? "accepted" : "declined" })
     .eq("id", inviteId);
+  if (error) return actionFail("SS-INBOX-02", error.message, { inviteId });
 
-  return { error: error?.message ?? null };
+  return { error: null };
 }
 
 /**
@@ -59,7 +63,7 @@ export async function respondInvite(inviteId: string, accept: boolean): Promise<
 export async function respondParentRequest(reqId: string, accept: boolean): Promise<Result> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." };
+  if (!user) return actionFail("SS-AUTH-01", null, { action: "respondParentRequest" });
 
   const { data: req } = await supabase
     .from("parent_requests")
@@ -67,22 +71,24 @@ export async function respondParentRequest(reqId: string, accept: boolean): Prom
     .eq("id", reqId)
     .single();
 
-  if (!req) return { error: "Request not found." };
-  if (req.student_id !== user.id) return { error: "This request isn't yours." };
+  if (!req) return actionFail("SS-NF-05", null, { action: "respondParentRequest", reqId });
+  if (req.student_id !== user.id) {
+    return actionFail("SS-AUTH-05", null, { action: "respondParentRequest", reqId });
+  }
   if (req.status !== "pending") return { error: "This request has already been answered." };
 
   const { error } = await supabase
     .from("parent_requests")
     .update({ status: accept ? "accepted" : "declined" })
     .eq("id", reqId);
-  if (error) return { error: error.message };
+  if (error) return actionFail("SS-INBOX-03", error.message, { reqId });
 
   if (accept) {
     const { error: linkErr } = await supabase.from("parent_students").insert({
       parent_id: req.parent_id,
       student_id: user.id,
     });
-    if (linkErr) return { error: linkErr.message };
+    if (linkErr) return actionFail("SS-INBOX-04", linkErr.message, { reqId });
   }
 
   return { error: null };

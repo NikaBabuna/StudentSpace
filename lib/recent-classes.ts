@@ -37,12 +37,63 @@ export function readRecentClassVisits(): RecentClassVisit[] {
   }
 }
 
+/* -----------------------------------------------------------------------------
+ * External store interface — lets components read visits with
+ * useSyncExternalStore instead of effect-driven state syncing. The snapshot is
+ * cached by the raw localStorage string so repeated reads return the same
+ * array reference (required: getSnapshot must be referentially stable).
+ * -------------------------------------------------------------------------- */
+
+const EMPTY_VISITS: RecentClassVisit[] = [];
+let cachedRaw: string | null = null;
+let cachedVisits: RecentClassVisit[] = EMPTY_VISITS;
+
+const listeners = new Set<() => void>();
+
+function notify(): void {
+  listeners.forEach((l) => l());
+}
+
+/** Subscribe to visit changes (this tab via recordClassVisit; other tabs via the storage event). */
+export function subscribeRecentClassVisits(listener: () => void): () => void {
+  listeners.add(listener);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === RECENT_CLASSES_STORAGE_KEY) listener();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+/** Snapshot for useSyncExternalStore (client). */
+export function getRecentClassVisitsSnapshot(): RecentClassVisit[] {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(RECENT_CLASSES_STORAGE_KEY);
+  } catch {
+    raw = null;
+  }
+  if (raw !== cachedRaw) {
+    cachedRaw = raw;
+    cachedVisits = raw ? readRecentClassVisits() : EMPTY_VISITS;
+  }
+  return cachedVisits;
+}
+
+/** Snapshot for useSyncExternalStore (server render — no storage). */
+export function getServerRecentClassVisits(): RecentClassVisit[] {
+  return EMPTY_VISITS;
+}
+
 export function recordClassVisit(classId: string): void {
   if (typeof window === "undefined" || !classId) return;
   try {
     const visits = readRecentClassVisits().filter((v) => v.classId !== classId);
     visits.unshift({ classId, visitedAt: Date.now() });
     localStorage.setItem(RECENT_CLASSES_STORAGE_KEY, JSON.stringify(visits.slice(0, MAX_RECENT)));
+    notify();
   } catch {
     /* private mode / storage disabled */
   }
@@ -65,11 +116,6 @@ export function sortClassesByRecency(
     if (!a.nextSession && b.nextSession) return 1;
     return a.title.localeCompare(b.title);
   });
-}
-
-/** Sort when visit history is unavailable (SSR / first paint). */
-export function sortClassesForPreview(classes: DashboardClassRow[]): DashboardClassRow[] {
-  return sortClassesByRecency(classes, []);
 }
 
 export function sortItemsByClassRecency<T extends { classId: string }>(

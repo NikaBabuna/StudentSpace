@@ -11,6 +11,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { actionFail } from "@/lib/log";
 
 type Result = { error: string | null };
 
@@ -21,7 +22,7 @@ export async function postMessage(classId: string, body: string): Promise<Result
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." };
+  if (!user) return actionFail("SS-AUTH-01", null, { action: "postMessage" });
 
   const { data: membership } = await supabase
     .from("class_members")
@@ -29,13 +30,14 @@ export async function postMessage(classId: string, body: string): Promise<Result
     .eq("class_id", classId)
     .eq("user_id", user.id)
     .single();
-  if (!membership) return { error: "You're not a member of this class." };
+  if (!membership) return actionFail("SS-AUTH-02", null, { action: "postMessage", classId });
 
   const { error } = await supabase.from("messages").insert({
     class_id: classId,
     author_id: user.id,
     body: text,
   });
+  if (error) return actionFail("SS-CHAT-01", error.message, { classId });
 
-  return { error: error?.message ?? null };
+  return { error: null };
 }

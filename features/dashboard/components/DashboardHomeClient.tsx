@@ -10,7 +10,7 @@
  * ========================================================================== */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 
 import type {
@@ -27,10 +27,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PlusIcon, ClassesIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
-  readRecentClassVisits,
+  getRecentClassVisitsSnapshot,
+  getServerRecentClassVisits,
   sortClassesByRecency,
-  sortClassesForPreview,
   sortItemsByClassRecency,
+  subscribeRecentClassVisits,
 } from "@/lib/recent-classes";
 
 function PanelCard({
@@ -255,6 +256,7 @@ function HomeworkPreviewList({
 }
 
 export default function DashboardHomeClient({
+  dateLabel,
   greeting,
   greetingSub,
   stats,
@@ -265,6 +267,7 @@ export default function DashboardHomeClient({
   classesHeading,
   homeworkHeading,
 }: {
+  dateLabel: string;
   greeting: string;
   greetingSub: string;
   stats: DashboardStat[];
@@ -275,22 +278,20 @@ export default function DashboardHomeClient({
   classesHeading: string;
   homeworkHeading: string;
 }) {
-  const [dateLabel, setDateLabel] = useState("");
   const [lessonsView, setLessonsView] = useState<"today" | "overall">("today");
-  const [previewClasses, setPreviewClasses] = useState(() => sortClassesForPreview(allClasses));
-  const [previewHomework, setPreviewHomework] = useState(() => homeworkAttention);
 
-  useEffect(() => {
-    setDateLabel(
-      new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })
-    );
-  }, []);
-
-  useEffect(() => {
-    const visits = readRecentClassVisits();
-    setPreviewClasses(sortClassesByRecency(allClasses, visits));
-    setPreviewHomework(sortItemsByClassRecency(homeworkAttention, visits));
-  }, [allClasses, homeworkAttention]);
+  // Recent-visit ordering comes from localStorage: read it as an external
+  // store (server renders the unsorted fallback, client re-renders sorted).
+  const visits = useSyncExternalStore(
+    subscribeRecentClassVisits,
+    getRecentClassVisitsSnapshot,
+    getServerRecentClassVisits
+  );
+  const previewClasses = useMemo(() => sortClassesByRecency(allClasses, visits), [allClasses, visits]);
+  const previewHomework = useMemo(
+    () => sortItemsByClassRecency(homeworkAttention, visits),
+    [homeworkAttention, visits]
+  );
 
   const activeSessions = lessonsView === "today" ? todaySessions : upcomingSessions;
   const previewSessions = activeSessions.slice(0, UPCOMING_PREVIEW_LIMIT);

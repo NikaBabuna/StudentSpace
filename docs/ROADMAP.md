@@ -22,9 +22,9 @@ Path from **feature-complete V1** to **hardened production** for a small tutorin
 
 **Gaps before calling production hardened:**
 
-1. **Storage** — Signed-URL code and policy SQL exist; buckets may still be public until manually flipped in Supabase.
-2. **RLS** — Policy SQL is in repo (`0002`, `0003`, `0004`); migration notes say policies are applied in production, but there is no automated role × table test matrix.
-3. **Code quality** — ESLint reports `no-explicit-any` errors (concentrated in `app/(shell)/dashboard/analytics/page.tsx`, `lib/dashboard-data.ts`; the employer loaders that held the rest were removed when the portal was gated). CI lint is informational (`continue-on-error: true`).
+1. **Storage** — ✅ Resolved. Buckets flipped to private in production; signed URLs serve all files (`lib/storage.ts`); failures log `SS-STORE-01`.
+2. **RLS** — ✅ Confirmed enabled in production and spot-checked per role (2026-07-02). The *automated* role × table matrix remains a Phase 3 item.
+3. **Code quality** — ✅ Resolved. ESLint is at 0 errors / 0 warnings and lint is a **blocking** CI gate; coverage thresholds guard the pure domain modules.
 4. **Employer UI** — ✅ Resolved. The legacy inline-style portal was removed; `EmployerShell` now uses the design system and the tabs are gated as "coming soon" pending a rebuild.
 
 ---
@@ -59,9 +59,11 @@ Path from **feature-complete V1** to **hardened production** for a small tutorin
 
 ### Production plumbing
 
-- GitHub Actions CI: lint (soft), `npm test`, `npm run build`
-- Vitest unit tests: `lib/payments.ts`, `lib/homework.ts`
-- Sentry wired (`@sentry/nextjs`; optional via `NEXT_PUBLIC_SENTRY_DSN`)
+- GitHub Actions CI: lint (blocking, 0/0), `npm run test:coverage` (coverage-gated), `npm run build`
+- Vitest unit suite (88 tests) with enforced coverage thresholds on all pure domain modules (see [TESTING.md](TESTING.md))
+- Error-code catalog + structured server logging (`lib/errors.ts`, `lib/log.ts`; see [ERRORS.md](ERRORS.md))
+- Best-effort rate limiting on email lookups (`lib/rate-limit.ts`)
+- Sentry wired (`@sentry/nextjs`; optional via `NEXT_PUBLIC_SENTRY_DSN`); error-severity codes forwarded with `code` tags
 - Security headers in `next.config.ts` (CSP, HSTS, X-Frame-Options, etc.)
 - Error boundaries: root, dashboard, classes, employer
 - Loading skeletons: dashboard, classes, employer, inbox, settings/access
@@ -75,10 +77,10 @@ Path from **feature-complete V1** to **hardened production** for a small tutorin
 
 | # | Task | Status | Notes |
 | --- | --- | --- | --- |
-| 1.1 | **Flip storage buckets to private** | Open | Apply `0003_storage_policies.sql` if not already. Dashboard → Storage → set `materials` and `homework-attachments` to private. Smoke-test uploads and downloads via signed URLs. |
-| 1.2 | **Confirm RLS on production** | Open | `0002_rls_policies.sql` enables RLS on all core tables. Verify `0004_recurring_lessons.sql` is applied (includes `recurring_schedules` policies). Run manual checks: tutor / student / parent / employer cannot read or write outside their scope. |
-| 1.3 | **RLS role matrix (light)** | Open | Documented spot-check per role on: classes, homework, submissions, messages, storage. Full automated matrix is Phase 3. |
-| 1.4 | **Rate-limit email lookup** | Open | Invite and parent-link flows search users by email — add throttling before wider exposure. |
+| 1.1 | **Flip storage buckets to private** | ✅ Done (2026-07-02) | Buckets private; signed URLs verified. Signing failures now log `SS-STORE-01` for visibility. |
+| 1.2 | **Confirm RLS on production** | ✅ Done (2026-07-02) | RLS confirmed on all core tables in production. |
+| 1.3 | **RLS role matrix (light)** | ✅ Done (2026-07-02) | Manual per-role spot-check performed. Full automated matrix is Phase 3. |
+| 1.4 | **Rate-limit email lookup** | ✅ Done (best-effort) | `lib/rate-limit.ts` throttles `lookupInviteEmail`, `sendInvite`, `sendParentRequest` per user (in-memory, per serverless instance). Swap the Map for Upstash Redis if hard guarantees are ever needed. |
 
 **Exit criteria:** Private buckets verified; one tutor + one student account tested against RLS; no anon-key bypass of write paths.
 
@@ -88,8 +90,8 @@ Path from **feature-complete V1** to **hardened production** for a small tutorin
 
 | # | Task | Status | Notes |
 | --- | --- | --- | --- |
-| 2.1 | **Fix `no-explicit-any`** | Open | Concentrated in analytics data loaders. Target files: `app/(shell)/dashboard/analytics/page.tsx`, `lib/dashboard-data.ts`. (The employer loaders that held the rest were removed when the portal was gated.) |
-| 2.2 | **Lint as CI gate** | Open | Set `continue-on-error: false` in `.github/workflows/ci.yml` after 2.1. |
+| 2.1 | **Fix `no-explicit-any`** | ✅ Done | Membership join rows are typed (`MembershipRow`) in `lib/dashboard-data.ts` and `lib/calendar-data.ts`. Zero `any` remains. |
+| 2.2 | **Lint as CI gate** | ✅ Done | `continue-on-error` removed in `.github/workflows/ci.yml`; lint (0 errors, 0 warnings) hard-fails the build. |
 | 2.3 | **Playwright happy path** | Open | Login → dashboard → class → post homework → student submit. Not in `package.json` yet. |
 | 2.4 | **Sentry source maps** | Open | Config supports upload; set `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` on Vercel for readable stack traces. |
 
@@ -119,7 +121,7 @@ These improve UX and maintainability but do not block a cautious private launch.
 | --- | --- |
 | **Employer portal rebuild** | ✅ Shell migrated to the design system; legacy inline-style components removed. Remaining: rebuild the actual Overview / Analytics / Inbox / Settings features (currently "coming soon" placeholders) on the design system. |
 | **Per-cycle payment amount** | Amount/currency set at class creation and editable on the **open** cycle via class settings; no UI when a **new** cycle opens after close. |
-| **Extract shared components** | `FileDropZone`, `DeadlineBadge` duplicated in `HomeworkClient` and `MaterialsClient`. |
+| **Extract shared components** | ✅ Done — `FileDropZone` + `formatFileSize` now shared in `components/ui/file-drop-zone.tsx`. (`DeadlineBadge` turned out to have a single copy; left in `HomeworkClient`.) |
 | **User preferences** | `/settings/preferences` is a placeholder; needs timezone / display-name editing (likely after email-verification policy is decided). |
 | **Require email verification** | Signup + confirm routes exist; toggle “confirm email” in Supabase and polish the unverified-user experience. |
 | **Supabase local dev** | `supabase start` for offline schema work. |

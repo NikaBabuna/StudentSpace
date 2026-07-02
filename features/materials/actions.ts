@@ -11,6 +11,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { actionFail } from "@/lib/log";
+import { userMessage } from "@/lib/errors";
 
 type Result = { error: string | null };
 
@@ -26,11 +28,11 @@ export type MaterialItem = {
 async function requireTutorForClass(classId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in.", supabase, user: null };
+  if (!user) return { error: userMessage("SS-AUTH-01"), supabase, user: null };
   const { data: membership } = await supabase
     .from("class_members").select("role")
     .eq("class_id", classId).eq("user_id", user.id).single();
-  if (membership?.role !== "tutor") return { error: "Only tutors can manage materials.", supabase, user: null };
+  if (membership?.role !== "tutor") return { error: userMessage("SS-AUTH-03"), supabase, user: null };
   return { error: null, supabase, user };
 }
 
@@ -46,7 +48,7 @@ export async function createMaterialGroup(classId: string, name: string): Promis
     .select("id")
     .single();
 
-  if (error) return { groupId: null, error: error.message };
+  if (error) return { groupId: null, ...actionFail("SS-MAT-01", error.message, { classId }) };
   return { groupId: group.id, error: null };
 }
 
@@ -68,7 +70,8 @@ export async function insertMaterials(classId: string, items: MaterialItem[]): P
   }));
 
   const { error } = await ctx.supabase.from("materials").insert(rows);
-  return { error: error?.message ?? null };
+  if (error) return actionFail("SS-MAT-02", error.message, { classId, count: items.length });
+  return { error: null };
 }
 
 export async function renameMaterialGroup(classId: string, groupId: string, name: string): Promise<Result> {
@@ -80,7 +83,8 @@ export async function renameMaterialGroup(classId: string, groupId: string, name
     .from("material_groups")
     .update({ name: name.trim() })
     .eq("id", groupId);
-  return { error: error?.message ?? null };
+  if (error) return actionFail("SS-MAT-03", error.message, { classId, groupId });
+  return { error: null };
 }
 
 export async function deleteMaterial(classId: string, materialId: string): Promise<Result> {
@@ -91,7 +95,8 @@ export async function deleteMaterial(classId: string, materialId: string): Promi
     .from("materials")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", materialId);
-  return { error: error?.message ?? null };
+  if (error) return actionFail("SS-MAT-04", error.message, { classId, materialId });
+  return { error: null };
 }
 
 export async function deleteMaterialGroup(classId: string, groupId: string): Promise<Result> {
@@ -102,13 +107,14 @@ export async function deleteMaterialGroup(classId: string, groupId: string): Pro
     .from("materials")
     .update({ deleted_at: new Date().toISOString() })
     .eq("group_id", groupId);
-  if (e1) return { error: e1.message };
+  if (e1) return actionFail("SS-MAT-05", e1.message, { classId, groupId, step: "materials" });
 
   const { error: e2 } = await ctx.supabase
     .from("material_groups")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", groupId);
-  return { error: e2?.message ?? null };
+  if (e2) return actionFail("SS-MAT-05", e2.message, { classId, groupId, step: "group" });
+  return { error: null };
 }
 
 export async function toggleMaterialPin(classId: string, materialId: string, pinned: boolean): Promise<Result> {
@@ -119,5 +125,6 @@ export async function toggleMaterialPin(classId: string, materialId: string, pin
     .from("materials")
     .update({ is_pinned: pinned })
     .eq("id", materialId);
-  return { error: error?.message ?? null };
+  if (error) return actionFail("SS-MAT-06", error.message, { classId, materialId });
+  return { error: null };
 }

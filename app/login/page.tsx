@@ -1,16 +1,18 @@
 /* =============================================================================
  * app/login/page.tsx — sign in
  * -----------------------------------------------------------------------------
- * Email/password login via Supabase. Behaviour is unchanged from before:
+ * Email/password login via Supabase.
  *   • surfaces "verify your email" / confirmation-failed messages from query
- *     params and from the sign-in error,
+ *     params (via useSearchParams, derived during render — no state syncing)
+ *     and from the sign-in error,
  *   • routes employers to /employer and everyone else to /dashboard.
- * Only the presentation changed — split-panel AuthShell + primitives.
+ * useSearchParams requires a Suspense boundary during prerender, so the page
+ * exports a thin wrapper around the actual form.
  * ========================================================================== */
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/client";
@@ -20,33 +22,41 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const supabase = createClient();
+  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Pick up post-verification / failed-confirmation hints from the URL.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("verified") === "1") {
-      setNotice("Email verified. You can log in now.");
-    }
-    if (params.get("error") === "confirmation_failed") {
-      setError(
-        "Email confirmation failed or the link expired. Try signing up again or contact support."
-      );
-    }
-  }, []);
+  // Post-verification / failed-confirmation hints come straight from the URL;
+  // they yield to form feedback once the user submits.
+  const notice =
+    !submitted && searchParams.get("verified") === "1"
+      ? "Email verified. You can log in now."
+      : null;
+  const paramError =
+    !submitted && searchParams.get("error") === "confirmation_failed"
+      ? "Email confirmation failed or the link expired. Try signing up again or contact support."
+      : null;
+  const error = formError ?? paramError;
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setNotice(null);
+    setFormError(null);
+    setSubmitted(true);
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -55,11 +65,11 @@ export default function LoginPage() {
       setLoading(false);
       const msg = error.message.toLowerCase();
       if (msg.includes("email not confirmed") || msg.includes("not confirmed")) {
-        setError(
+        setFormError(
           "Please verify your email before logging in. Check your inbox for the confirmation link."
         );
       } else {
-        setError(error.message);
+        setFormError(error.message);
       }
       return;
     }

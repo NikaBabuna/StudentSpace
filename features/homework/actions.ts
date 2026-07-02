@@ -12,6 +12,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { canSubmit } from "@/lib/homework";
+import { actionFail } from "@/lib/log";
+import { userMessage } from "@/lib/errors";
 import { homeworkSchema, firstError } from "@/lib/validation";
 import { zonedWallClockToUtcIso } from "@/lib/time";
 import type { Attachment } from "@/lib/types";
@@ -21,11 +23,11 @@ type Result = { error: string | null };
 async function requireTutorForClass(classId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in.", supabase, user: null };
+  if (!user) return { error: userMessage("SS-AUTH-01"), supabase, user: null };
   const { data: membership } = await supabase
     .from("class_members").select("role")
     .eq("class_id", classId).eq("user_id", user.id).single();
-  if (membership?.role !== "tutor") return { error: "Only tutors can do this.", supabase, user: null };
+  if (membership?.role !== "tutor") return { error: userMessage("SS-AUTH-03"), supabase, user: null };
   return { error: null, supabase, user };
 }
 
@@ -52,8 +54,9 @@ export async function createHomework(input: {
     deadline: zonedWallClockToUtcIso(input.deadline),
     attachments: input.attachments,
   });
+  if (error) return actionFail("SS-HW-01", error.message, { classId: input.classId });
 
-  return { error: error?.message ?? null };
+  return { error: null };
 }
 
 export async function updateHomework(input: {
@@ -76,8 +79,9 @@ export async function updateHomework(input: {
     deadline: zonedWallClockToUtcIso(input.deadline),
     attachments: input.attachments,
   }).eq("id", input.hwId);
+  if (error) return actionFail("SS-HW-02", error.message, { classId: input.classId, hwId: input.hwId });
 
-  return { error: error?.message ?? null };
+  return { error: null };
 }
 
 export async function deleteHomework(hwId: string, classId: string): Promise<Result> {
@@ -88,8 +92,9 @@ export async function deleteHomework(hwId: string, classId: string): Promise<Res
     .from("homework")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", hwId);
+  if (error) return actionFail("SS-HW-03", error.message, { classId, hwId });
 
-  return { error: error?.message ?? null };
+  return { error: null };
 }
 
 /**
@@ -109,14 +114,16 @@ export async function submitHomework(input: {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "You must be signed in." };
+  if (!user) return actionFail("SS-AUTH-01", null, { action: "submitHomework" });
 
   const { data: hw } = await supabase
     .from("homework")
     .select("id, class_id, deadline, deleted_at")
     .eq("id", input.homeworkId)
     .single();
-  if (!hw || hw.deleted_at) return { error: "Homework not found." };
+  if (!hw || hw.deleted_at) {
+    return actionFail("SS-NF-03", null, { action: "submitHomework", hwId: input.homeworkId });
+  }
 
   // Must be a student member of the class.
   const { data: membership } = await supabase
@@ -139,7 +146,7 @@ export async function submitHomework(input: {
     student_id: user.id,
     attachments: input.attachments,
   });
-  if (error) return { error: error.message };
+  if (error) return actionFail("SS-SUB-01", error.message, { hwId: input.homeworkId });
 
   return { error: null };
 }

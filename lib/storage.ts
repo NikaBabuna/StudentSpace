@@ -11,6 +11,7 @@
  * ========================================================================== */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { logEvent } from "@/lib/log";
 
 export const MATERIALS_BUCKET = "materials";
 export const HOMEWORK_BUCKET = "homework-attachments";
@@ -49,8 +50,14 @@ export async function signStoredUrl(
 ): Promise<string> {
   const path = storagePathFromUrl(url, bucket);
   if (!path) return url;
-  const { data } = await supabase.storage.from(bucket).createSignedUrl(path, SIGNED_URL_TTL);
-  return data?.signedUrl ?? url;
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, SIGNED_URL_TTL);
+  if (!data?.signedUrl) {
+    // With private buckets the unsigned fallback URL will not open — log it so
+    // a broken file link is visible in the server logs instead of silent.
+    logEvent("SS-STORE-01", error?.message ?? "no signed URL returned", { bucket, path });
+    return url;
+  }
+  return data.signedUrl;
 }
 
 /** Sign the `url` of every attachment in a list (returns a new array). */
