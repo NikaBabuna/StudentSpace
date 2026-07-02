@@ -18,11 +18,14 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
+import { useEscapeClose } from "@/components/ui/use-escape-close";
+import { CloseIcon } from "@/components/icons";
 
+// Same role → tone mapping as the class cards and inbox (ROLE / ROLE_TONE).
 const ROLE_BADGE: Record<string, "accent" | "warn" | "ok" | "neutral"> = {
   tutor: "accent",
-  student: "warn",
-  parent: "ok",
+  student: "ok",
+  parent: "warn",
   employer: "neutral",
 };
 
@@ -44,6 +47,8 @@ export default function MembersButton({
     setOpen(false);
     setConfirmId(null);
   }
+
+  useEscapeClose(close, open);
 
   async function handleRemove(userId: string) {
     setRemoving(userId);
@@ -79,7 +84,7 @@ export default function MembersButton({
                   Members
                 </h2>
                 <IconButton size="sm" aria-label="Close" onClick={close}>
-                  ✕
+                  <CloseIcon size={16} />
                 </IconButton>
               </div>
 

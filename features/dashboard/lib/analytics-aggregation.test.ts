@@ -16,16 +16,24 @@ import {
 } from "./analytics-aggregation";
 
 describe("rangeStart", () => {
-  it("returns a start 6 days back for week", () => {
+  it("returns the start of the day 6 days back for week (aligned with chart buckets)", () => {
     const start = rangeStart("week")!;
+    expect(start.getHours()).toBe(0);
+    expect(start.getMinutes()).toBe(0);
     const days = (Date.now() - start.getTime()) / 86400000;
-    expect(days).toBeCloseTo(6, 1);
+    expect(days).toBeGreaterThanOrEqual(6);
+    expect(days).toBeLessThan(7);
+    // Must equal the first weekly bucket's lower bound.
+    expect(start.getTime()).toBe(getTimeBucketWindows("week")[0].from.getTime());
   });
 
-  it("returns a start 27 days back for month", () => {
+  it("returns the start of the day 27 days back for month (aligned with chart buckets)", () => {
     const start = rangeStart("month")!;
+    expect(start.getHours()).toBe(0);
     const days = (Date.now() - start.getTime()) / 86400000;
-    expect(days).toBeCloseTo(27, 1);
+    expect(days).toBeGreaterThanOrEqual(27);
+    expect(days).toBeLessThan(28);
+    expect(start.getTime()).toBe(getTimeBucketWindows("month")[0].from.getTime());
   });
 
   it("returns the first of the month 11 months back for year", () => {
@@ -109,10 +117,14 @@ describe("getTimeBucketWindows", () => {
     expect(buckets[0].from.getDate()).toBe(1);
   });
 
-  it("caps all-time at 24 buckets", () => {
+  it("caps all-time at 24 buckets while keeping the window anchored to today", () => {
     const now = new Date();
     const earliest = new Date(now.getFullYear() - 5, 0, 1);
-    expect(getTimeBucketWindows("all", earliest).length).toBeLessThanOrEqual(24);
+    const buckets = getTimeBucketWindows("all", earliest);
+    expect(buckets.length).toBeLessThanOrEqual(24);
+    // The cap must drop the OLDEST months — the last bucket always covers now.
+    const last = buckets[buckets.length - 1];
+    expect(inDateWindow(now.toISOString(), last.from, last.to)).toBe(true);
   });
 
   it("falls back to a single today-bucket when there is no history", () => {

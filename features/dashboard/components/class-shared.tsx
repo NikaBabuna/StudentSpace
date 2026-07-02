@@ -23,6 +23,7 @@ import { Field } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { IconButton } from "@/components/ui/icon-button";
+import { useEscapeClose } from "@/components/ui/use-escape-close";
 import { CloseIcon } from "@/components/icons";
 
 const ROLE: Record<string, { label: string; tone: "accent" | "ok" | "warn" | "neutral" }> = {
@@ -49,6 +50,8 @@ function EditClassModal({ cls, onClose }: { cls: DashboardClassRow; onClose: () 
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  useEscapeClose(onClose);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -95,12 +98,12 @@ function EditClassModal({ cls, onClose }: { cls: DashboardClassRow; onClose: () 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="flex max-h-[90vh] w-[460px] max-w-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow)]">
+      <div className="flex max-h-[90vh] w-[460px] max-w-full flex-col overflow-hidden rounded-2xl border border-line bg-bg shadow-[var(--shadow)]">
         <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
           <div className="text-sm font-semibold text-ink">Edit class</div>
           <IconButton aria-label="Close" onClick={onClose}>

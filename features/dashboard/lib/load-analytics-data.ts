@@ -66,6 +66,8 @@ export type AnalyticsPageData = {
   userId: string;
   tutorClasses: AnalyticsClass[];
   studentClasses: AnalyticsClass[];
+  /** Classes where the user is a parent member — needed to resolve titles on the parent tab. */
+  parentClasses: AnalyticsClass[];
   parentChildren: AnalyticsParentChild[];
   lessons: AnalyticsLesson[];
   homework: AnalyticsHomework[];
@@ -107,10 +109,13 @@ export async function loadAnalyticsData(): Promise<AnalyticsPageData> {
   );
   const tutorMemberships = memberships.filter((m) => m.role === "tutor");
   const studentMemberships = memberships.filter((m) => m.role === "student");
+  const parentMemberships = memberships.filter((m) => m.role === "parent");
 
   const tutorClassIds = tutorMemberships.map((m) => m.classes.id);
-  const studentClassIds = studentMemberships.map((m) => m.classes.id);
-  const allClassIds = [...new Set([...tutorClassIds, ...studentClassIds])];
+
+  // Lessons/homework must cover every membership (including parent-role
+  // classes), otherwise the parent tab has no data for observed classes.
+  const allClassIds = [...new Set(memberships.map((m) => m.classes.id))];
   const inAll = allClassIds.length > 0 ? allClassIds : [FALLBACK_ID];
   const parentClassIds = memberships.map((m) => m.classes.id);
 
@@ -165,6 +170,7 @@ export async function loadAnalyticsData(): Promise<AnalyticsPageData> {
     userId: user.id,
     tutorClasses: tutorMemberships.map((m) => m.classes),
     studentClasses: studentMemberships.map((m) => m.classes),
+    parentClasses: parentMemberships.map((m) => m.classes),
     parentChildren,
     lessons: allLessons ?? [],
     homework: allHomework ?? [],

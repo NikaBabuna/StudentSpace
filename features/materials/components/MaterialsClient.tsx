@@ -23,6 +23,8 @@ import { Field } from "@/components/ui/field";
 import { FileDropZone, formatFileSize } from "@/components/ui/file-drop-zone";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
+import { useEscapeClose } from "@/components/ui/use-escape-close";
+import { CloseIcon, PlusIcon } from "@/components/icons";
 import {
   createMaterialGroup,
   insertMaterials,
@@ -99,6 +101,8 @@ function ModalShell({
   children: React.ReactNode;
   widthClass?: string;
 }) {
+  useEscapeClose(onClose);
+
   if (typeof document === "undefined") return null;
 
   return createPortal(
@@ -124,7 +128,7 @@ function ModalShell({
             {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
           </div>
           <IconButton size="sm" aria-label="Close" onClick={onClose}>
-            ✕
+            <CloseIcon size={16} />
           </IconButton>
         </div>
         <div className="overflow-y-auto p-5">{children}</div>
@@ -337,13 +341,16 @@ export default function MaterialsClient({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[13px] text-muted">
-          {groups.length} {groups.length === 1 ? "group" : "groups"} · {materials.length}{" "}
-          {materials.length === 1 ? "file" : "files"}
+        <p className="text-[14px] text-ink-2">
+          {groups.length} {groups.length === 1 ? "group" : "groups"}
+          <span className="text-muted">
+            {" "}
+            · {materials.length} {materials.length === 1 ? "file" : "files"}
+          </span>
         </p>
         {isTutor ? (
           <Button size="sm" onClick={openUploadModal}>
-            + Upload
+            <PlusIcon size={16} /> Upload
           </Button>
         ) : null}
       </div>

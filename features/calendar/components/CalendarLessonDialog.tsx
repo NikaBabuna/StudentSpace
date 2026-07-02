@@ -9,7 +9,7 @@
  * ========================================================================== */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { IconButton } from "@/components/ui/icon-button";
+import { useEscapeClose } from "@/components/ui/use-escape-close";
 import { ArrowRightIcon, CloseIcon, RepeatIcon } from "@/components/icons";
 import type { ClassRole } from "@/lib/types";
 import type { CalendarLesson } from "@/lib/calendar-data";
@@ -75,14 +76,7 @@ export function CalendarLessonDialog({
   const [time, setTime] = useState(() => lessonTime(lesson));
   const [duration, setDuration] = useState(lesson.duration_hours);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  useEscapeClose(onClose, open);
 
   if (!open || typeof document === "undefined") return null;
 

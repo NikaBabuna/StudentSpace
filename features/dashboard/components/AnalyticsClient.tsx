@@ -163,6 +163,7 @@ export default function AnalyticsClient({
   userId,
   tutorClasses,
   studentClasses,
+  parentClasses,
   parentChildren,
   lessons,
   homework,
@@ -310,7 +311,8 @@ export default function AnalyticsClient({
 
     const classStats = sharedIds.map((clsId) => {
       const cls =
-        [...tutorClasses, ...studentClasses].find((c) => c.id === clsId) ?? { id: clsId, title: "Unknown" };
+        [...parentClasses, ...tutorClasses, ...studentClasses].find((c) => c.id === clsId) ??
+        { id: clsId, title: "Unknown" };
       const cl = cLessons.filter((l) => l.class_id === clsId);
       const ch = cHw.filter((h) => h.class_id === clsId);
       const chIds = ch.map((h) => h.id);
@@ -354,7 +356,7 @@ export default function AnalyticsClient({
         action={<AnalyticsRangePicker range={range} onChange={setRange} />}
       />
 
-      {tabs.length > 0 ? (
+      {tabs.length > 1 ? (
         <Tabs
           items={tabs.map((t) => ({ key: t.value, label: t.label }))}
           active={tab}
@@ -376,7 +378,7 @@ export default function AnalyticsClient({
               <StatGrid
                 stats={[
                   { label: "Total hours", value: tTotalHours, delta: "completed", deltaTone: "muted" },
-                  { label: "Total lessons", value: tCompleted, delta: `${tMissed} missed`, deltaTone: "muted" },
+                  { label: "Lessons completed", value: tCompleted, delta: `${tMissed} missed`, deltaTone: "muted" },
                   {
                     label: "Missed rate",
                     value: tConcluded > 0 ? `${tMissedRate}%` : "—",

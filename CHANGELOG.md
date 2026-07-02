@@ -1,5 +1,95 @@
 # Changelog
 
+## Analytics fixes + cross-tab UI consistency polish + calendar upgrade
+
+### Summary
+
+Fixed six analytics/data bugs (the biggest: the parent tab silently showed no
+data; the most visible: focusing a class shattered the earnings chart's
+stacked bars), unified the small interaction details that differed from tab
+to tab — dialog dismissal, overlay styling, button glyphs, role-badge
+colours — rebalanced the dashboard preview panels, and upgraded the calendar
+with a now-line, click-to-add slots, class filtering, status glyphs, and
+keyboard navigation.
+
+### Analytics bug fixes
+
+- **Parent tab had no data.** `load-analytics-data.ts` only fetched lessons /
+  homework / members for tutor+student class ids, so classes where the user is
+  a **parent** member came back empty and their titles rendered as "Unknown".
+  The loader now queries all memberships and exposes `parentClasses` so the
+  parent tab resolves titles and stats correctly.
+- **Stat totals vs chart buckets disagreed on the first day.** `rangeStart`
+  returned a mid-day instant (now − 6/27 days) while chart buckets are
+  day-aligned, so the first bucket's morning was excluded from the stat cards.
+  Week/month starts are now aligned to start-of-day (tests updated to pin the
+  bucket alignment).
+- **All-time chart dropped recent months.** The 24-bucket cap truncated from
+  the earliest month forward, cutting off the *newest* months once history
+  exceeded 24. The window is now anchored to the current month and drops the
+  oldest months instead (test strengthened: last bucket must contain today).
+- **"Submitted" and "Feedback given" had identical legend colours.**
+  `useChartTheme` read `--ok` verbatim for `okMuted`; it now applies a 0.55
+  alpha (and the chart's compensating double-opacity hack was removed).
+- **Class overview bucketed "due today" in the server's timezone.** One bare
+  `toDateString()` comparison in the student homework list is now
+  `isSameDayInZone` per the timezone rules.
+- Tutor stat card relabelled "Total lessons" → "Lessons completed" (it always
+  showed the completed count); the tab row is hidden when only one role tab
+  exists.
+
+### Chart focus stacking fix
+
+- **Focusing a class broke the earnings chart's stacked bars** (stray
+  side-by-side / full-height bars). The focus mode reordered the stacked `Bar`
+  children to bottom-align the focused class, and Recharts drops the stack
+  layout when children with a shared `stackId` reorder. Bar order is now
+  stable; focus emphasis comes from dimming + the overlay area. Same latent
+  bug removed from the lesson-activity chart's segment ordering.
+
+### Dashboard home
+
+- Replaced the fade-out "peek" rows in the classes and homework panels (the
+  "See all" link rendered on top of a half-visible row) with a clean
+  "See all (N)" footer row shared by all three panels; classes preview now
+  shows 4 rows so the two side-by-side panels balance.
+- Sessions 7+ days out now show their date ("Thu 9 Jul · 22:00") instead of a
+  bare weekday, which read as out-of-order in the Overall list.
+
+### Calendar upgrade
+
+- **Now line** — red current-time marker across today's column, updating
+  every minute.
+- **Click an empty slot to add a lesson** (tutors) — opens the add dialog
+  pre-filled with that day and the clicked time snapped to 30 minutes
+  (`AddLessonDialog` gained `initialTime`).
+- **Legend chips are now class filters** — click to hide/show a class in both
+  views, with a "Show all" reset.
+- **Status at a glance** — completed lessons show a ✓, missed show a ✕,
+  cancelled titles are struck through (week blocks and month chips).
+- **Keyboard navigation** — ← / → page the week/month, T jumps to today
+  (disabled while dialogs are open or typing).
+- Weekend columns get a subtle tint; an empty week shows a centered hint; a
+  one-line affordance hint sits under the week grid.
+
+### UI consistency polish
+
+- **Every dialog now closes on Escape** via the new shared
+  `components/ui/use-escape-close.ts` hook (previously only 2 of 10 dialogs
+  did); the two hand-rolled listeners were replaced with the hook.
+- **One overlay/panel recipe for all dialogs:** `bg-black/70` scrim +
+  `bg-bg` panel (the class edit/settings modals used `/55` + `bg-surface`).
+- **Close buttons use `CloseIcon`** everywhere (Members and Materials dialogs
+  used a literal "✕").
+- **Toolbar "+" buttons use `PlusIcon`** everywhere (Post homework, Upload,
+  Invite, Submit work — Resubmit uses `RepeatIcon`), matching New class /
+  Add lessons / Add lesson.
+- **Members dialog role-badge colours** now match the class cards and inbox
+  (student = green, parent = amber; they were flipped).
+- **Class-tab toolbar summary lines** (schedule / homework / materials) share
+  one style: `text-[14px] text-ink-2` with muted secondary counts.
+- Overview panel header links gained the standard `hover:underline`.
+
 ## Testing & logging infrastructure — error codes, coverage gates, doc suite completion
 
 ### Summary

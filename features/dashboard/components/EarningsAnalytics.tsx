@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { IconButton } from "@/components/ui/icon-button";
+import { useEscapeClose } from "@/components/ui/use-escape-close";
 import { CloseIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { classColor } from "@/features/calendar/lib/calendar-utils";
@@ -278,6 +279,8 @@ function ProjectionsDialog({
   total: number;
   onClose: () => void;
 }) {
+  useEscapeClose(onClose);
+
   if (typeof document === "undefined") return null;
 
   return createPortal(

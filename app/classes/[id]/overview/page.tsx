@@ -356,7 +356,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
         <OverviewPanel
           title="Next lesson"
           headerRight={
-            <Link href={`/classes/${id}/schedule`} className="text-[13px] font-semibold text-accent">
+            <Link href={`/classes/${id}/schedule`} className="text-[13px] font-semibold text-accent hover:underline">
               View schedule
             </Link>
           }
@@ -404,7 +404,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
         <OverviewPanel
           title={isTutor ? "Homework" : "Active homework"}
           headerRight={
-            <Link href={`/classes/${id}/homework`} className="text-[13px] font-semibold text-accent">
+            <Link href={`/classes/${id}/homework`} className="text-[13px] font-semibold text-accent hover:underline">
               View all
             </Link>
           }
@@ -446,7 +446,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
             <div className="flex flex-col">
               {activeHw.slice(0, 5).map((hw) => {
                 const sub = mySubmissions.find((s) => s.homework_id === hw.id);
-                const isToday = new Date(hw.deadline).toDateString() === now.toDateString();
+                const isToday = isSameDayInZone(new Date(hw.deadline), now);
                 return (
                   <div
                     key={hw.id}

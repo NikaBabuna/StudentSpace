@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
+import { useEscapeClose } from "@/components/ui/use-escape-close";
 import {
   LessonScheduleFields,
   isLessonScheduleValid,
@@ -30,13 +31,15 @@ type Props = {
   classes: { id: string; title: string }[];
   /** Day pre-selected from the grid (yyyy-mm-dd), if any. */
   initialDateKey?: string;
+  /** Time pre-selected from the week grid (HH:MM), if any. */
+  initialTime?: string;
   onDone: () => void;
 };
 
-export function AddLessonDialog({ open, onClose, classes, initialDateKey, onDone }: Props) {
+export function AddLessonDialog({ open, onClose, classes, initialDateKey, initialTime, onDone }: Props) {
   const [classId, setClassId] = useState(classes[0]?.id ?? "");
   const [mode, setMode] = useState<"once" | "repeat">("once");
-  const [time, setTime] = useState("16:00");
+  const [time, setTime] = useState(initialTime ?? "16:00");
   const [durationHours, setDurationHours] = useState(1);
   const [dateKey, setDateKey] = useState(() => initialDateKey ?? toDateKey(new Date()));
   const [weekdays, setWeekdays] = useState<number[]>(() => [
@@ -47,6 +50,8 @@ export function AddLessonDialog({ open, onClose, classes, initialDateKey, onDone
   const [untilDate, setUntilDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEscapeClose(onClose, open);
 
   function toggleWeekday(dow: number) {
     setWeekdays((prev) => (prev.includes(dow) ? prev.filter((d) => d !== dow) : [...prev, dow]));

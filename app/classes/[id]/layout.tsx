@@ -11,6 +11,7 @@ import { getServerClient, requireAuth, getClassRow, getClassMembership } from "@
 import { AppShell } from "@/components/shell/app-shell";
 import { PageContainer } from "@/components/shell/page-container";
 import { Button } from "@/components/ui/button";
+import { PlusIcon } from "@/components/icons";
 import MembersButton from "@/features/classes/components/MembersButton";
 import RecordClassVisit from "@/features/classes/components/RecordClassVisit";
 
@@ -144,7 +145,9 @@ export default async function ClassLayout({
             <div className="flex shrink-0 items-center gap-2">
               <MembersButton classId={id} members={members} currentUserId={user.id} />
               <Button asChild size="sm">
-                <Link href={`/classes/${id}/invite`}>+ Invite</Link>
+                <Link href={`/classes/${id}/invite`}>
+                  <PlusIcon size={16} /> Invite
+                </Link>
               </Button>
             </div>
           ) : null}

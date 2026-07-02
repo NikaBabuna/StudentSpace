@@ -112,8 +112,10 @@ function formatNextSession(at: Date, now: Date) {
   if (isSameDayInZone(at, now)) return `Today ${formatTime(at)}`;
   const diffDays = calendarDayDiffInZone(at, now);
   if (diffDays === 1) return `Tomorrow ${formatTime(at)}`;
-  const weekday = formatDateInZone(at, { weekday: "short" });
-  return `${weekday} ${formatTime(at)}`;
+  // Within this week a weekday is unambiguous; beyond that, include the date —
+  // otherwise "Thu 22:00" for next week reads like it's out of order.
+  if (diffDays < 7) return `${formatDateInZone(at, { weekday: "short" })} ${formatTime(at)}`;
+  return `${formatDateInZone(at, { weekday: "short", day: "numeric", month: "short" })} · ${formatTime(at)}`;
 }
 
 function formatDurationHours(hours: number) {

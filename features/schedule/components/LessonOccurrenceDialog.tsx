@@ -11,12 +11,13 @@
  * ========================================================================== */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
+import { useEscapeClose } from "@/components/ui/use-escape-close";
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, RepeatIcon } from "@/components/icons";
 import {
   type Lesson,
@@ -74,14 +75,7 @@ export function LessonOccurrenceDialog({
     return { year: d.getFullYear(), month: d.getMonth() };
   });
 
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  useEscapeClose(onClose, open);
 
   function stepMonth(delta: number) {
     setCursor((c) => {

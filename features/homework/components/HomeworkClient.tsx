@@ -29,7 +29,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FileDropZone, formatFileSize } from "@/components/ui/file-drop-zone";
-import { HomeworkIcon } from "@/components/icons";
+import { useEscapeClose } from "@/components/ui/use-escape-close";
+import { HomeworkIcon, PlusIcon, RepeatIcon } from "@/components/icons";
 
 interface Homework {
   id: string;
@@ -348,7 +349,15 @@ function HwCard({
                       setSubmitFiles([]);
                     }}
                   >
-                    {mySub ? "↻ Resubmit work" : "+ Submit work"}
+                    {mySub ? (
+                      <>
+                        <RepeatIcon size={14} /> Resubmit work
+                      </>
+                    ) : (
+                      <>
+                        <PlusIcon size={14} /> Submit work
+                      </>
+                    )}
                   </Button>
                 ) : (
                   <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
@@ -415,6 +424,8 @@ function HwModal({
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEscapeClose(onClose);
 
   const isEdit = !!editTarget;
 
@@ -736,12 +747,13 @@ export default function HomeworkClient({
   return (
     <div className="flex flex-col gap-4">
       <div className="mb-1 flex items-center justify-between gap-3">
-        <p className="text-[13px] text-muted">
+        <p className="text-[14px] text-ink-2">
           {homework.length} {homework.length === 1 ? "assignment" : "assignments"}
+          {active.length > 0 ? <span className="text-muted"> · {active.length} active</span> : null}
         </p>
         {isTutor ? (
           <Button size="sm" onClick={openPost}>
-            + Post homework
+            <PlusIcon size={16} /> Post homework
           </Button>
         ) : null}
       </div>

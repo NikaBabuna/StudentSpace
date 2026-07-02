@@ -152,6 +152,7 @@ Reusable, token-styled building blocks. No business logic. Compose these in feat
 | `skeleton.tsx`, `spinner.tsx` | Loading indicators |
 | `stat-card.tsx` | Dashboard metric card |
 | `tabs.tsx` | Tab navigation |
+| `use-escape-close.ts` | Shared hook: dialogs close on Escape (used by every portal dialog) |
 
 #### `components/shell/` — Application frame
 

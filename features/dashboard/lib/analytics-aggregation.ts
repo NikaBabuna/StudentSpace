@@ -17,10 +17,23 @@ export type NamedValue = {
   value: number;
 };
 
+/**
+ * Lower bound of a range, aligned to local day/month starts so it matches the
+ * chart buckets from getTimeBucketWindows (a mid-day instant would silently
+ * exclude the first bucket's morning from the stat totals).
+ */
 export function rangeStart(range: AnalyticsRange): Date | null {
   const now = new Date();
-  if (range === "week") return new Date(now.getTime() - 6 * 86400000);
-  if (range === "month") return new Date(now.getTime() - 27 * 86400000);
+  if (range === "week") {
+    const d = startOfDay(now);
+    d.setDate(d.getDate() - 6);
+    return d;
+  }
+  if (range === "month") {
+    const d = startOfDay(now);
+    d.setDate(d.getDate() - 27);
+    return d;
+  }
   if (range === "year") return new Date(now.getFullYear(), now.getMonth() - 11, 1);
   return null;
 }
@@ -109,7 +122,12 @@ export function getTimeBucketWindows(range: AnalyticsRange, earliest?: Date): Bu
   }
 
   const dated = earliest ?? now;
-  const fromMonth = new Date(dated.getFullYear(), dated.getMonth(), 1);
+  let fromMonth = new Date(dated.getFullYear(), dated.getMonth(), 1);
+  // Cap all-time at 24 monthly buckets, anchored to the CURRENT month — the
+  // window must always end at today, dropping the oldest months instead of
+  // truncating recent activity off the end of the chart.
+  const minFrom = new Date(now.getFullYear(), now.getMonth() - 23, 1);
+  if (fromMonth < minFrom) fromMonth = minFrom;
   const buckets: BucketWindow[] = [];
   let cursor = new Date(fromMonth);
   while (cursor <= now && buckets.length < 24) {

@@ -11,7 +11,7 @@
  * ========================================================================== */
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,14 @@ import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageContainer, PageHeader } from "@/components/shell/page-container";
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon, ScheduleIcon } from "@/components/icons";
+import {
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  PlusIcon,
+  ScheduleIcon,
+} from "@/components/icons";
 import type { ClassRole } from "@/lib/types";
 import type { CalendarClass, CalendarLesson } from "@/lib/calendar-data";
 import {
@@ -87,6 +94,8 @@ export default function CalendarClient({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [addDateKey, setAddDateKey] = useState<string | undefined>(undefined);
+  const [addTime, setAddTime] = useState<string | undefined>(undefined);
+  const [hiddenClassIds, setHiddenClassIds] = useState<ReadonlySet<string>>(new Set());
   const [overrides, setOverrides] = useState<Record<string, Partial<CalendarLesson>>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -118,11 +127,47 @@ export default function CalendarClient({
   );
   const mergedById = useMemo(() => new Map(merged.map((l) => [l.id, l] as const)), [merged]);
 
+  // Legend chips double as class filters — hidden classes drop out of both views.
+  const visibleLessons = useMemo(
+    () => (hiddenClassIds.size === 0 ? merged : merged.filter((l) => !hiddenClassIds.has(l.class_id))),
+    [merged, hiddenClassIds]
+  );
+
+  function toggleClassHidden(classId: string) {
+    setHiddenClassIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(classId)) next.delete(classId);
+      else next.add(classId);
+      return next;
+    });
+  }
+
   const canManage = (l: CalendarLesson) => roleByClass.get(l.class_id) === "tutor";
+  const canQuickAdd = teachingClasses.length > 0;
 
   function go(delta: number) {
     setRefDate((d) => (view === "week" ? addDays(d, delta * 7) : addMonths(d, delta)));
   }
+
+  // ← / → page the visible week or month, T jumps to today — disabled while a
+  // dialog is open or the focus is in a form control.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (selectedId || showAdd) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable))
+        return;
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        const delta = e.key === "ArrowLeft" ? -1 : 1;
+        setRefDate((d) => (view === "week" ? addDays(d, delta * 7) : addMonths(d, delta)));
+      } else if (e.key === "t" || e.key === "T") {
+        setRefDate(new Date());
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [view, selectedId, showAdd]);
 
   /* ---- mutations -------------------------------------------------------- */
 
@@ -193,15 +238,31 @@ export default function CalendarClient({
   const weekLessons = useMemo(() => {
     const start = startOfWeek(refDate);
     const end = addDays(start, 7);
-    return merged.filter((l) => {
+    return visibleLessons.filter((l) => {
       const t = new Date(l.scheduled_at);
       return t >= start && t < end;
     });
-  }, [merged, refDate]);
+  }, [visibleLessons, refDate]);
 
   const { startHour, endHour } = useMemo(() => dayWindow(weekLessons), [weekLessons]);
   const gridHeight = (endHour - startHour) * PPH;
   const hourMarks = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
+
+  /** Click on an empty stretch of a day column → add a lesson at that slot. */
+  function handleColumnClick(e: React.MouseEvent<HTMLDivElement>, day: Date) {
+    if (!canQuickAdd) return;
+    // Ignore clicks landing on a lesson block (open/drag handles those).
+    if ((e.target as Element).closest("[data-lesson-block]")) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const minutes = clamp(
+      minutesFromY(e.clientY - rect.top, startHour, PPH, 30),
+      startHour * 60,
+      endHour * 60 - 30
+    );
+    setAddDateKey(toDateKey(day));
+    setAddTime(formatMinutes(minutes));
+    setShowAdd(true);
+  }
 
   /* ---- drag / resize ---------------------------------------------------- */
 
@@ -306,10 +367,11 @@ export default function CalendarClient({
             : `${classes.length} ${classes.length === 1 ? "class" : "classes"} · all your lessons in one place`
         }
         action={
-          teachingClasses.length > 0 ? (
+          canQuickAdd ? (
             <Button
               onClick={() => {
                 setAddDateKey(undefined);
+                setAddTime(undefined);
                 setShowAdd(true);
               }}
             >
@@ -418,11 +480,18 @@ export default function CalendarClient({
                   (l) => lessonStartMinutes(l) + l.duration_hours * 60
                 );
                 const isToday = sameDay(day, today);
+                const isWeekend = di >= 5;
                 return (
                   <div
                     key={di}
-                    className={cn("relative border-l border-line first:border-l-0", isToday && "bg-accent-tint/20")}
+                    onClick={(e) => handleColumnClick(e, day)}
+                    className={cn(
+                      "relative border-l border-line first:border-l-0",
+                      isToday ? "bg-accent-tint/20" : isWeekend && "bg-surface-2/30",
+                      canQuickAdd && "cursor-pointer"
+                    )}
                   >
+                    {isToday ? <NowLine startHour={startHour} endHour={endHour} /> : null}
                     {positioned.map(({ item: l, col, cols }) => {
                       const color = colorByClass.get(l.class_id);
                       const cls = classById.get(l.class_id);
@@ -435,6 +504,7 @@ export default function CalendarClient({
                       return (
                         <div
                           key={l.id}
+                          data-lesson-block=""
                           role="button"
                           tabIndex={0}
                           aria-label={`${cls?.title ?? "Lesson"} ${formatMinutes(startMin)}`}
@@ -464,10 +534,17 @@ export default function CalendarClient({
                             touchAction: "none",
                           }}
                         >
-                          <div className="truncate text-[11.5px] font-semibold leading-tight">
+                          <div
+                            className={cn(
+                              "truncate text-[11.5px] font-semibold leading-tight",
+                              l.status === "cancelled" && "line-through"
+                            )}
+                          >
                             {cls?.title ?? "Lesson"}
                           </div>
-                          <div className="truncate font-mono text-[10.5px] opacity-80">
+                          <div className="flex items-center gap-1 truncate font-mono text-[10.5px] opacity-80">
+                            {l.status === "completed" ? <CheckIcon size={10} className="shrink-0" /> : null}
+                            {l.status === "missed" ? <CloseIcon size={10} className="shrink-0" /> : null}
                             {formatMinutes(startMin)}–{formatMinutes(startMin + l.duration_hours * 60)}
                           </div>
                           {manage ? (
@@ -494,6 +571,15 @@ export default function CalendarClient({
                   </div>
                 );
               })}
+
+              {weekLessons.length === 0 ? (
+                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+                  <p className="rounded-xl border border-line bg-surface/90 px-4 py-2 text-[13px] text-muted">
+                    No lessons this week
+                    {canQuickAdd ? " — click a time slot to add one" : ""}
+                  </p>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -501,14 +587,15 @@ export default function CalendarClient({
         <MonthView
           refDate={refDate}
           today={today}
-          lessons={merged}
+          lessons={visibleLessons}
           classById={classById}
           colorByClass={colorByClass}
           onSelect={setSelectedId}
           onAddDay={
-            teachingClasses.length > 0
+            canQuickAdd
               ? (dateKey) => {
                   setAddDateKey(dateKey);
+                  setAddTime(undefined);
                   setShowAdd(true);
                 }
               : undefined
@@ -516,18 +603,48 @@ export default function CalendarClient({
         />
       )}
 
-      {/* Legend */}
+      {classes.length > 0 && view === "week" ? (
+        <p className="mt-2 text-[11px] text-muted">
+          {canQuickAdd
+            ? "Click an empty slot to add a lesson · drag a lesson to move it · drag its bottom edge to resize · ← → to change week"
+            : "Click a lesson for details · ← → to change week"}
+        </p>
+      ) : null}
+
+      {/* Legend — chips double as class filters */}
       {classes.length > 0 ? (
-        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
-          {classes.map((c) => (
-            <span key={c.id} className="inline-flex items-center gap-2 text-[12.5px] text-ink-2">
-              <span className="size-3 rounded" style={{ background: colorByClass.get(c.id)?.bar }} />
-              {c.title}
-              <Badge tone="neutral" className="text-[10px]">
-                {c.role}
-              </Badge>
-            </span>
-          ))}
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          {classes.map((c) => {
+            const hidden = hiddenClassIds.has(c.id);
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => toggleClassHidden(c.id)}
+                aria-pressed={!hidden}
+                title={hidden ? "Show this class" : "Hide this class"}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-lg px-2 py-1 text-[12.5px] transition-all",
+                  hidden ? "opacity-40 hover:opacity-70" : "text-ink-2 hover:bg-surface-2"
+                )}
+              >
+                <span className="size-3 rounded" style={{ background: colorByClass.get(c.id)?.bar }} />
+                {c.title}
+                <Badge tone="neutral" className="text-[10px]">
+                  {c.role}
+                </Badge>
+              </button>
+            );
+          })}
+          {hiddenClassIds.size > 0 ? (
+            <button
+              type="button"
+              onClick={() => setHiddenClassIds(new Set())}
+              className="ml-1 text-[12px] font-semibold text-accent hover:underline"
+            >
+              Show all
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -554,6 +671,7 @@ export default function CalendarClient({
           onClose={() => setShowAdd(false)}
           classes={teachingClasses.map((c) => ({ id: c.id, title: c.title }))}
           initialDateKey={addDateKey}
+          initialTime={addTime}
           onDone={() => {
             setShowAdd(false);
             router.refresh();
@@ -562,6 +680,32 @@ export default function CalendarClient({
       ) : null}
     </PageContainer>
   );
+}
+
+/** Red "current time" marker across today's column; re-checks every minute. */
+function NowLine({ startHour, endHour }: { startHour: number; endHour: number }) {
+  const [minutes, setMinutes] = useState(() => currentMinutes());
+
+  useEffect(() => {
+    const timer = setInterval(() => setMinutes(currentMinutes()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (minutes < startHour * 60 || minutes > endHour * 60) return null;
+  const top = (minutes / 60 - startHour) * PPH;
+
+  return (
+    <div className="pointer-events-none absolute inset-x-0 z-20" style={{ top }}>
+      <div className="relative h-[2px] bg-danger/80">
+        <span className="absolute -left-[2px] top-1/2 size-2 -translate-y-1/2 rounded-full bg-danger" />
+      </div>
+    </div>
+  );
+}
+
+function currentMinutes() {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes();
 }
 
 function PreviewBlock({
@@ -676,13 +820,22 @@ function MonthView({
                       )}
                       style={{ background: color?.tint, borderColor: color?.bar, color: color?.bar }}
                     >
+                      {l.status === "completed" ? <CheckIcon size={10} className="shrink-0" /> : null}
+                      {l.status === "missed" ? <CloseIcon size={10} className="shrink-0" /> : null}
                       <span className="font-mono text-[10px] opacity-80">
                         {new Date(l.scheduled_at).toLocaleTimeString("en-GB", {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
                       </span>
-                      <span className="truncate font-medium">{classById.get(l.class_id)?.title ?? "Lesson"}</span>
+                      <span
+                        className={cn(
+                          "truncate font-medium",
+                          l.status === "cancelled" && "line-through"
+                        )}
+                      >
+                        {classById.get(l.class_id)?.title ?? "Lesson"}
+                      </span>
                     </button>
                   );
                 })}

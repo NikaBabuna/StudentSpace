@@ -55,6 +55,11 @@ const FALLBACK_THEME: ChartTheme = {
   surface: "oklch(0.22 0.02 265)",
 };
 
+/** Add an alpha channel to a functional color (oklch()/rgb()/hsl() tokens). */
+function withAlpha(color: string, alpha: number) {
+  return color.replace(/\)\s*$/, ` / ${alpha})`);
+}
+
 function useChartTheme(): ChartTheme {
   const [theme, setTheme] = useState(FALLBACK_THEME);
 
@@ -65,7 +70,7 @@ function useChartTheme(): ChartTheme {
       setTheme({
         accent: get("--accent") || FALLBACK_THEME.accent,
         ok: get("--ok") || FALLBACK_THEME.ok,
-        okMuted: get("--ok") || FALLBACK_THEME.ok,
+        okMuted: get("--ok") ? withAlpha(get("--ok"), 0.55) : FALLBACK_THEME.okMuted,
         warn: get("--warn") || FALLBACK_THEME.warn,
         danger: get("--danger") || FALLBACK_THEME.danger,
         muted: get("--muted") || FALLBACK_THEME.muted,
@@ -532,22 +537,15 @@ export function LessonActivityComposedChart({
   const empty =
     data.length === 0 || !data.some((d) => d.total > 0 || d.completedOnTime > 0 || d.rescheduled > 0);
 
-  const orderedSegments = useMemo(() => {
-    const onTime = {
-      id: "onTime" as const,
-      dataKey: "completedOnTime",
-      name: "Completed on time",
-      fill: theme.ok,
-    };
-    const rescheduled = {
-      id: "rescheduled" as const,
-      dataKey: "rescheduled",
-      name: "Completed on re-schedule",
-      fill: theme.warn,
-    };
-    if (focusSegment === "rescheduled") return [rescheduled, onTime];
-    return [onTime, rescheduled];
-  }, [focusSegment, theme.ok, theme.warn]);
+  // Segment order stays STABLE across focus changes — reordering stacked Bar
+  // children breaks Recharts' stack layout (see EarningsComposedChart).
+  const segments = useMemo(
+    () => [
+      { id: "onTime" as const, dataKey: "completedOnTime", name: "Completed on time", fill: theme.ok },
+      { id: "rescheduled" as const, dataKey: "rescheduled", name: "Completed on re-schedule", fill: theme.warn },
+    ],
+    [theme.ok, theme.warn]
+  );
 
   return (
     <div className={cn("h-[320px] w-full", chartShellClassName())}>
@@ -612,7 +610,7 @@ export function LessonActivityComposedChart({
                 />
               )}
             />
-            {orderedSegments.map((segment) => (
+            {segments.map((segment) => (
               <Bar
                 key={segment.dataKey}
                 dataKey={segment.dataKey}
@@ -853,7 +851,6 @@ export function HomeworkStackedChart({
                 name={item.label}
                 stackId="hw"
                 fill={item.color}
-                fillOpacity={item.key === "submitted" ? 0.55 : 1}
                 radius={item.key === "overdue" ? [6, 6, 0, 0] : undefined}
                 maxBarSize={56}
                 activeBar={activeBarStyle()}
@@ -892,13 +889,6 @@ export function EarningsComposedChart({
   const focusKey = focusClassId ? `c_${focusClassId}` : null;
   const focusPalette = focusClassId ? classColor(focusClassId) : null;
   const isFocus = !!focusClassId && !!focusKey && !!focusPalette;
-
-  const orderedClasses = useMemo(() => {
-    if (!focusClassId) return classes;
-    const focused = classes.find((c) => c.id === focusClassId);
-    if (!focused) return classes;
-    return [focused, ...classes.filter((c) => c.id !== focusClassId)];
-  }, [classes, focusClassId]);
 
   const handleMouseMove = (state: ChartInteractionState) => {
     if (pinnedClassId) return;
@@ -984,7 +974,11 @@ export function EarningsComposedChart({
                 />
               )}
             />
-            {orderedClasses.map((cls) => {
+            {/* Bar order must stay STABLE across focus changes: reordering
+              * children that share a stackId makes Recharts drop the stack
+              * layout and render stray side-by-side bars. Focus emphasis
+              * comes from dimming + the overlay area instead. */}
+            {classes.map((cls) => {
               const color = classColor(cls.id);
               const key = `c_${cls.id}`;
               const dimmed = isFocus && focusClassId !== cls.id;

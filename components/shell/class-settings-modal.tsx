@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
+import { useEscapeClose } from "@/components/ui/use-escape-close";
 import { CloseIcon } from "@/components/icons";
 
 export type ClassSettingsModalProps = {
@@ -74,6 +75,8 @@ export function ClassSettingsModal({
   const [leaving, setLeaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useEscapeClose(onClose);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -137,12 +140,12 @@ export function ClassSettingsModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="flex max-h-[90vh] w-[460px] max-w-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow)]">
+      <div className="flex max-h-[90vh] w-[460px] max-w-full flex-col overflow-hidden rounded-2xl border border-line bg-bg shadow-[var(--shadow)]">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
           <div className="text-sm font-semibold text-ink">Class settings</div>

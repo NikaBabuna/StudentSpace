@@ -57,8 +57,19 @@ function PanelCard({
 }
 
 const UPCOMING_PREVIEW_LIMIT = 4;
-const CLASS_PREVIEW_COUNT = 3;
+const CLASS_PREVIEW_COUNT = 4;
 const HOMEWORK_PREVIEW_COUNT = 3;
+
+/** Shared "See all (N)" footer row — same treatment in every preview panel. */
+function SeeAllRow({ href, count }: { href: string; count: number }) {
+  return (
+    <div className="border-t border-line pt-3">
+      <Link href={href} className="text-[13px] font-semibold text-accent hover:underline">
+        See all ({count})
+      </Link>
+    </div>
+  );
+}
 
 function LessonsToggle({
   value,
@@ -155,30 +166,15 @@ function ClassesPreviewList({
 }: {
   classes: DashboardClassRow[];
 }) {
-  const hasMore = classes.length > CLASS_PREVIEW_COUNT;
   const primary = classes.slice(0, CLASS_PREVIEW_COUNT);
-  const peek = hasMore ? classes[CLASS_PREVIEW_COUNT] : null;
 
   return (
     <div className="flex flex-col">
       {primary.map((cls) => (
         <ClassPreviewRow key={cls.id} cls={cls} />
       ))}
-      {peek ? (
-        <div className="relative border-t border-line">
-          <div className="max-h-[40px] overflow-hidden">
-            <ClassPreviewRow cls={peek} className="pointer-events-none" />
-          </div>
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-surface/75 to-surface" />
-          <div className="absolute inset-x-0 bottom-1.5 flex justify-center">
-            <Link
-              href="/dashboard/classes"
-              className="text-[13px] font-semibold text-accent hover:underline"
-            >
-              See all ({classes.length})
-            </Link>
-          </div>
-        </div>
+      {classes.length > CLASS_PREVIEW_COUNT ? (
+        <SeeAllRow href="/dashboard/classes" count={classes.length} />
       ) : null}
     </div>
   );
@@ -226,30 +222,15 @@ function HomeworkPreviewList({
 }: {
   items: HomeworkAttentionRow[];
 }) {
-  const hasMore = items.length > HOMEWORK_PREVIEW_COUNT;
   const primary = items.slice(0, HOMEWORK_PREVIEW_COUNT);
-  const peek = hasMore ? items[HOMEWORK_PREVIEW_COUNT] : null;
 
   return (
     <div className="flex flex-col">
       {primary.map((item) => (
         <HomeworkRow key={item.id} item={item} />
       ))}
-      {peek ? (
-        <div className="relative border-t border-line">
-          <div className="max-h-[52px] overflow-hidden">
-            <HomeworkRow item={peek} className="pointer-events-none" />
-          </div>
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-surface/75 to-surface" />
-          <div className="absolute inset-x-0 bottom-1.5 flex justify-center">
-            <Link
-              href="/dashboard/classes"
-              className="text-[13px] font-semibold text-accent hover:underline"
-            >
-              See all ({items.length})
-            </Link>
-          </div>
-        </div>
+      {items.length > HOMEWORK_PREVIEW_COUNT ? (
+        <SeeAllRow href="/dashboard/classes" count={items.length} />
       ) : null}
     </div>
   );
@@ -360,14 +341,7 @@ export default function DashboardHomeClient({
                     />
                   ))}
                   {hasMoreSessions ? (
-                    <div className="border-t border-line pt-3">
-                      <Link
-                        href="/calendar"
-                        className="text-[13px] font-semibold text-accent hover:underline"
-                      >
-                        See all ({activeSessions.length})
-                      </Link>
-                    </div>
+                    <SeeAllRow href="/calendar" count={activeSessions.length} />
                   ) : null}
                 </div>
               )}

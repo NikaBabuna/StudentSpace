@@ -15,6 +15,7 @@ import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
+import { useEscapeClose } from "@/components/ui/use-escape-close";
 import {
   LessonScheduleFields,
   isLessonScheduleValid,
@@ -65,6 +66,8 @@ function AddLessonsDialogBody({
   missedNeedingMakeup,
   initialMakeupForId = "",
 }: Omit<AddLessonsDialogProps, "open">) {
+  useEscapeClose(onClose);
+
   const isMakeup = !!initialMakeupForId;
 
   const [mode, setMode] = useState<"once" | "repeat">("once");
